@@ -576,6 +576,7 @@
                 // Lifespan: 1 hour to 24 hours
                 this.lifespan = rand(60 * 60 * 1000, 24 * 60 * 60 * 1000); 
                 this.isDead = false;
+                this.isEaten = false; // NEW FLAG: If eaten, bypass float-up animation
                 
                 this.energy = 100; 
                 this.maxEnergy = 100;
@@ -589,6 +590,8 @@
                 this.chatText = null;
                 this.chatTimer = 0;
                 this.isTalking = false;
+
+                this.lastReproductionTime = 0; // Cooldown for reproduction
 
                 this.generateName();
             }
@@ -622,6 +625,36 @@
 
                 this.chatTimer = 300;
                 this.isTalking = false;
+            }
+
+            // --- Reproduction Logic ---
+            reproduce(mate) {
+                const numOffspring = Math.floor(rand(1, 4)); // 1 to 3 babies
+                const spawnPos = new Vector((this.pos.x + mate.pos.x) / 2, (this.pos.y + mate.pos.y) / 2);
+                
+                showToast(`New Spirits! ${this.name} and ${mate.name} welcome ${numOffspring} babies.`);
+
+                for (let i = 0; i < numOffspring; i++) {
+                    const child = new Fish(this.species);
+                    child.pos = spawnPos;
+                    child.size = this.species.size * 0.2; // Start at 0.2x scale
+                    child.maxSpeed *= 1.5; // Babies are quick
+                    fishes.push(child);
+                    
+                    // Add a spark particle effect for birth
+                    for(let j=0; j<10; j++) {
+                        particles.push({
+                            x: spawnPos.x, y: spawnPos.y,
+                            vx: rand(-2,2), vy: rand(-2,2),
+                            life: 1.0, color: '#A4DDBB' // Green/white for life
+                        });
+                    }
+                }
+
+                // Apply cooldown to both parents (5 to 10 minutes)
+                const cooldown = rand(5 * 60 * 1000, 10 * 60 * 1000);
+                this.lastReproductionTime = Date.now() + cooldown;
+                mate.lastReproductionTime = Date.now() + cooldown;
             }
 
             // --- Flocking Algorithm ---
@@ -719,7 +752,6 @@
                     // 1. Prey is not dead
                     // 2. Prey is not self
                     // 3. Prey is significantly smaller (0.6x size or less)
-                    // 4. Prey is not also a predator (optional, but good for hierarchy)
                     if (prey !== this && !prey.isDead && prey.size < this.size * 0.6) {
                         let d = dist(this.pos.x, this.pos.y, prey.pos.x, prey.pos.y);
                         
@@ -758,6 +790,25 @@
                         this.digestionSlowdown += 0.002; // Slow recovery
                     }
 
+                    // --- Reproduction Logic Check ---
+                    if (fishes.length <= 50) {
+                        const minCooldown = 5 * 60 * 1000;
+                        if (Date.now() - this.lastReproductionTime > minCooldown && this.energy >= 80) {
+                            
+                            let potentialMate = allFish.find(other => 
+                                other !== this && 
+                                other.species.id === this.species.id && 
+                                other.energy >= 80 && 
+                                Date.now() - other.lastReproductionTime > minCooldown &&
+                                dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 60 // Proximity check
+                            );
+
+                            if (potentialMate) {
+                                this.reproduce(potentialMate);
+                            }
+                        }
+                    }
+                    
                     // Death Checks
                     if (Date.now() - this.birthTime > this.lifespan || this.energy <= 0) {
                         this.isDead = true;
@@ -772,7 +823,25 @@
                     }
                 }
 
+                // --- Predation Death Animation Check ---
+                if (this.species.isPredator) {
+                    let eatenPrey = this.hunt(allFish);
+                    if (eatenPrey) {
+                        // Mark prey as eaten for instant removal
+                        eatenPrey.isDead = true;
+                        eatenPrey.deathReason = `Eaten by ${this.name}`;
+                        eatenPrey.isEaten = true; 
+                        this.feed();
+                    }
+                }
+
                 if (this.isDead) {
+                    if (this.isEaten) {
+                        // Instant removal
+                        return 'eaten'; 
+                    }
+                    
+                    // Standard float-up animation
                     this.vel.x *= 0.9; 
                     this.vel.y = -1.5; 
                     let targetAngle = Math.PI;
@@ -790,23 +859,11 @@
                     if (this.chatTimer <= 0) this.chatText = null;
                 }
 
-                // 1. Find Food or Hunt
+                // 1. Find Food
                 let target = null;
                 let closestDist = Infinity;
                 let closestFood = null;
                 
-                // Hunting Logic for Predators
-                if (this.species.isPredator) {
-                    // hunt() modifies acc to chase, and returns a fish if eaten
-                    let eatenPrey = this.hunt(allFish);
-                    if (eatenPrey) {
-                        eatenPrey.isDead = true;
-                        eatenPrey.deathReason = `Eaten by ${this.name}`;
-                        // Simulate eating food
-                        this.feed();
-                    }
-                }
-
                 // Standard Food Seeking
                 for (let f of foodList) {
                     if (!f.eaten) {
@@ -955,6 +1012,8 @@
             }
 
             draw(ctx) {
+                if (this.isDead && this.isEaten) return; // Do not draw if instantly consumed
+
                 ctx.save();
                 ctx.translate(this.pos.x, this.pos.y);
 
@@ -1332,8 +1391,9 @@
                 f.draw(ctx);
             });
 
-            // Use a separate list to process removals to avoid index issues
+            // Lists for post-processing removal
             let deadFish = [];
+            let eatenFish = []; 
 
             fishes.forEach(fish => {
                 let status = fish.update(foodItems, fishes); 
@@ -1341,11 +1401,18 @@
                 
                 if (status === 'gone') {
                     deadFish.push(fish);
+                } else if (status === 'eaten') {
+                    eatenFish.push(fish);
+                    
+                    // Spawning blood cloud particle effect
+                    for(let i=0; i<30; i++) {
+                        particles.push({
+                            x: fish.pos.x, y: fish.pos.y,
+                            vx: rand(-3,3), vy: rand(-3,3),
+                            life: 1.0, color: '#E74C3C' // Blood red
+                        });
+                    }
                 }
-                
-                // If died in update (e.g. starvation/disease), also check to see if we should remove visual next frame
-                // But 'gone' specifically refers to floating off screen.
-                // Fish that just died this frame (isDead=true) still need to float up.
             });
 
             // Remove fish that have floated off screen
@@ -1356,23 +1423,35 @@
                     fishes.splice(index, 1);
                 }
             });
+            
+            // Remove fish that were eaten immediately (no float up)
+            eatenFish.forEach(fish => {
+                const index = fishes.indexOf(fish);
+                if (index > -1) {
+                    addToGraveyard(fish); // Still record the death
+                    fishes.splice(index, 1);
+                }
+            });
 
             particles = particles.filter(p => {
                 if (p instanceof Food) return !p.eaten;
                 if (p instanceof Bubble) return true;
-                return p.life > 0;
-            });
-
-            others.forEach(p => {
-                if(p.update) p.update();
-                else {
+                
+                // Generic particle removal
+                if (p.life) {
                     p.x += p.vx;
                     p.y += p.vy;
                     p.life -= 0.05;
+                    return p.life > 0;
                 }
+                return true; 
+            });
+
+            // Draw generic particles (blood/birth)
+            others.forEach(p => {
                 if(p.draw) p.draw(ctx);
                 else {
-                    ctx.fillStyle = `rgba(255, 255, 255, ${p.life})`;
+                    ctx.fillStyle = p.color ? p.color : `rgba(255, 255, 255, ${p.life})`;
                     ctx.beginPath();
                     ctx.arc(p.x, p.y, 2, 0, Math.PI*2);
                     ctx.fill();
