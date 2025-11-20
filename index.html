@@ -64,6 +64,11 @@
             gap: 10px;
         }
 
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
         .mode-btn {
             background: rgba(255, 255, 255, 0.9);
             border: none;
@@ -274,9 +279,14 @@
                 </div>
             </div>
             
-            <button id="talkBtn" class="mode-btn" onclick="toggleTalkMode()">
-                ✨ Talk to Spirits
-            </button>
+            <div class="button-group">
+                <button id="autoFeedBtn" class="mode-btn" onclick="toggleAutoFeed()">
+                    🍂 Auto Feed: OFF
+                </button>
+                <button id="talkBtn" class="mode-btn" onclick="toggleTalkMode()">
+                    ✨ Talk to Spirits
+                </button>
+            </div>
         </div>
         
         <div id="toast">Summoning...</div>
@@ -432,6 +442,8 @@
         let ripples = [];
         let lastTime = 0;
         let isTalkMode = false;
+        let isAutoFeed = false;
+        let autoFeedTimer = null;
         let mousePos = { x: -9999, y: -9999 };
 
         // --- Classes ---
@@ -441,6 +453,7 @@
             add(v) { this.x += v.x; this.y += v.y; }
             sub(v) { this.x -= v.x; this.y -= v.y; }
             mult(n) { this.x *= n; this.y *= n; }
+            div(n) { if(n!==0) { this.x /= n; this.y /= n; } }
             mag() { return Math.sqrt(this.x * this.x + this.y * this.y); }
             normalize() {
                 let m = this.mag();
@@ -452,6 +465,7 @@
                     this.mult(max);
                 }
             }
+            static sub(v1, v2) { return new Vector(v1.x - v2.x, v1.y - v2.y); }
         }
 
         class Ripple {
@@ -539,7 +553,7 @@
                 this.angle = Math.random() * Math.PI * 2;
                 
                 this.maxSpeed = type.speed;
-                this.maxForce = 0.1;
+                this.maxForce = 0.1; // Steering force
                 this.size = type.size;
                 
                 this.birthTime = Date.now();
@@ -547,10 +561,11 @@
                 this.isDead = false;
                 
                 this.energy = 100; 
-                this.fullness = 0; 
                 this.maxEnergy = 100;
-                this.maxFullness = 100;
 
+                // Eating slowdown
+                this.digestionSlowdown = 1.0; // Multiplier, goes to 0.5 when full
+                
                 this.tailAngle = 0;
                 this.tailSpeed = 0.2;
                 
@@ -592,10 +607,99 @@
                 this.isTalking = false;
             }
 
-            update(foodList) {
+            // --- Flocking Algorithm ---
+            flock(boids) {
+                let sep = new Vector(0, 0);
+                let ali = new Vector(0, 0);
+                let coh = new Vector(0, 0);
+                
+                let sepCount = 0;
+                let aliCount = 0;
+                let cohCount = 0;
+
+                // Parameters
+                const desiredSeparation = 40 + this.size;
+                const neighborDist = 100;
+
+                for (let other of boids) {
+                    if (other === this || other.isDead) continue;
+                    
+                    let d = dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y);
+                    
+                    // Separation: Avoid crowding
+                    if (d > 0 && d < desiredSeparation) {
+                        let diff = Vector.sub(this.pos, other.pos);
+                        diff.normalize();
+                        diff.div(d); // Weight by distance
+                        sep.add(diff);
+                        sepCount++;
+                    }
+
+                    // Alignment & Cohesion: Only with neighbors
+                    if (d > 0 && d < neighborDist) {
+                        // Stronger schooling if same species
+                        let factor = (other.species.id === this.species.id) ? 2.0 : 0.5;
+                        
+                        // Alignment: steer towards average heading
+                        let alignVel = new Vector(other.vel.x, other.vel.y);
+                        alignVel.mult(factor);
+                        ali.add(alignVel);
+                        aliCount++;
+
+                        // Cohesion: steer towards average position
+                        let cohPos = new Vector(other.pos.x, other.pos.y);
+                        // No factor mult here directly on pos, logic handled in steering
+                        coh.add(cohPos);
+                        cohCount++;
+                    }
+                }
+
+                // Average and Steering
+                if (sepCount > 0) {
+                    sep.div(sepCount);
+                    sep.normalize();
+                    sep.mult(this.maxSpeed);
+                    sep.sub(this.vel);
+                    sep.limit(this.maxForce * 2.0); // High priority
+                }
+
+                if (aliCount > 0) {
+                    ali.div(aliCount);
+                    ali.normalize();
+                    ali.mult(this.maxSpeed);
+                    ali.sub(this.vel);
+                    ali.limit(this.maxForce);
+                }
+
+                if (cohCount > 0) {
+                    coh.div(cohCount);
+                    // Steer towards
+                    let desired = Vector.sub(coh, this.pos);
+                    desired.normalize();
+                    desired.mult(this.maxSpeed);
+                    let steer = Vector.sub(desired, this.vel);
+                    steer.limit(this.maxForce);
+                    coh = steer;
+                }
+
+                // Apply weights
+                sep.mult(1.5);
+                ali.mult(1.0);
+                coh.mult(1.0);
+
+                this.acc.add(sep);
+                this.acc.add(ali);
+                this.acc.add(coh);
+            }
+
+            update(foodList, allFish) {
                 if (!this.isDead) {
                     this.energy -= 0.006;
-                    this.fullness = Math.max(0, this.fullness - 0.05);
+                    
+                    // Recover speed after eating
+                    if (this.digestionSlowdown < 1.0) {
+                        this.digestionSlowdown += 0.002; // Slow recovery
+                    }
 
                     if (Date.now() - this.birthTime > this.lifespan || this.energy <= 0) {
                         this.isDead = true;
@@ -621,6 +725,7 @@
                     if (this.chatTimer <= 0) this.chatText = null;
                 }
 
+                // 1. Find Food
                 let target = null;
                 let closestDist = Infinity;
                 let closestFood = null;
@@ -643,28 +748,35 @@
                     }
                 }
 
+                // 2. Behaviors
                 if (target) {
+                    // Hunger overrides social behavior
                     this.seek(target);
                 } else {
-                    this.wander();
+                    // Socialize
+                    this.flock(allFish);
+                    this.wander(); // Base movement
                     this.boundaries();
                 }
 
                 this.vel.add(this.acc);
                 
+                // Speed modifiers
                 let dToMouse = dist(this.pos.x, this.pos.y, mousePos.x, mousePos.y);
                 let speedMod = 1;
                 if (dToMouse < 150) speedMod = 0.3;
 
                 let energyFactor = Math.max(0.2, this.energy / this.maxEnergy);
                 speedMod *= energyFactor;
-
-                if (this.fullness > 80) speedMod *= 0.7;
+                
+                // Apply Digestion slowdown
+                speedMod *= this.digestionSlowdown;
 
                 this.vel.limit(this.maxSpeed * (target ? 1.5 : 1) * speedMod);
                 this.pos.add(this.vel);
-                this.acc.mult(0);
+                this.acc.mult(0); // Reset acc
 
+                // Angle smoothing
                 let desiredAngle = Math.atan2(this.vel.y, this.vel.x);
                 let diff = desiredAngle - this.angle;
                 while (diff < -Math.PI) diff += Math.PI * 2;
@@ -682,7 +794,7 @@
                 let desired = new Vector(target.x - this.pos.x, target.y - this.pos.y);
                 desired.normalize();
                 desired.mult(this.maxSpeed);
-                let steer = new Vector(desired.x - this.vel.x, desired.y - this.vel.y);
+                let steer = Vector.sub(desired, this.vel);
                 steer.limit(this.maxForce);
                 this.acc.add(steer);
             }
@@ -710,7 +822,7 @@
                 if (desired) {
                     desired.normalize();
                     desired.mult(this.maxSpeed);
-                    let steer = new Vector(desired.x - this.vel.x, desired.y - this.vel.y);
+                    let steer = Vector.sub(desired, this.vel);
                     steer.limit(this.maxForce * 2);
                     this.acc.add(steer);
                 }
@@ -719,16 +831,13 @@
             feed() {
                 if (this.isDead) return;
                 
-                if (this.fullness > this.maxFullness) {
-                    this.sickUp();
-                    return;
-                }
-
                 score += 15;
                 updateScore();
                 
                 this.energy = Math.min(this.maxEnergy, this.energy + 30);
-                this.fullness += 25;
+                
+                // Food Coma: Slow down
+                this.digestionSlowdown = 0.5; 
 
                 const maxSize = this.species.size * 2.0; 
                 if (this.size < maxSize) {
@@ -745,26 +854,11 @@
                 }
             }
 
-            sickUp() {
-                particles.push(new Food(this.pos.x, this.pos.y));
-                this.fullness = 50;
-                
-                for(let i=0; i<8; i++) {
-                    particles.push({
-                        x: this.pos.x, y: this.pos.y,
-                        vx: rand(-2,2), vy: rand(-2,2),
-                        life: 1.5, color: '#88e1d5'
-                    });
-                }
-                this.vel.mult(0.1);
-            }
-
             draw(ctx) {
                 ctx.save();
                 ctx.translate(this.pos.x, this.pos.y);
 
-                // Draw Chat Bubble only if fully alive and talking
-                if (this.chatText && !this.isDead && this.size > 0) { // size check for safety
+                if (this.chatText && !this.isDead && this.size > 0) {
                     ctx.save();
                     ctx.translate(0, -this.size * 2 - 20);
                     ctx.font = "16px 'Patrick Hand'";
@@ -794,8 +888,6 @@
                 if (this.isDead) {
                     ctx.globalAlpha = 0.6;
                     ctx.filter = "grayscale(0.8)";
-                } else if (this.fullness > 90) {
-                    ctx.filter = "hue-rotate(120deg) brightness(1.1)"; 
                 }
 
                 ctx.shadowColor = 'rgba(0,0,0,0.2)';
@@ -859,7 +951,7 @@
                     ctx.fill();
                 }
 
-                if (isTalkMode && !this.isDead && this.size > 0) { // Ensure size check for drawing context safety
+                if (isTalkMode && !this.isDead && this.size > 0) {
                     ctx.rotate(-this.angle);
                     ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
                     ctx.font = "bold 14px 'Patrick Hand'";
@@ -927,6 +1019,25 @@
                 btn.classList.remove('active');
                 btn.innerText = "✨ Talk to Spirits";
                 document.body.style.cursor = "default";
+            }
+        }
+
+        function toggleAutoFeed() {
+            isAutoFeed = !isAutoFeed;
+            const btn = document.getElementById('autoFeedBtn');
+            
+            if (isAutoFeed) {
+                btn.classList.add('active');
+                btn.innerText = "🍂 Auto Feed: ON";
+                
+                // Drop food every 2 seconds
+                autoFeedTimer = setInterval(() => {
+                    particles.push(new Food(rand(50, width - 50), -10));
+                }, 2000);
+            } else {
+                btn.classList.remove('active');
+                btn.innerText = "🍂 Auto Feed: OFF";
+                clearInterval(autoFeedTimer);
             }
         }
 
@@ -1123,7 +1234,7 @@
 
             for (let i = fishes.length - 1; i >= 0; i--) {
                 let fish = fishes[i];
-                let status = fish.update(foodItems);
+                let status = fish.update(foodItems, fishes); // Pass all fishes for flocking
                 fish.draw(ctx);
                 
                 if (status === 'gone') {
