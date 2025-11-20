@@ -471,18 +471,30 @@
             mult(n) { this.x *= n; this.y *= n; }
             div(n) { if(n!==0) { this.x /= n; this.y /= n; } }
             mag() { return Math.sqrt(this.x * this.x + this.y * this.y); }
+            // Optimization: Squared magnitude for faster distance checks
+            magSq() { return this.x * this.x + this.y * this.y; }
             normalize() {
                 let m = this.mag();
                 if (m !== 0) this.mult(1/m);
             }
             limit(max) {
-                if (this.mag() > max) {
+                if (this.magSq() > max * max) {
                     this.normalize();
                     this.mult(max);
                 }
             }
             static sub(v1, v2) { return new Vector(v1.x - v2.x, v1.y - v2.y); }
+            // Optimization: Static squared distance
+            static distSq(v1, v2) {
+                let dx = v1.x - v2.x;
+                let dy = v1.y - v2.y;
+                return dx*dx + dy*dy;
+            }
         }
+
+        // Helper for squared distance
+        const distSq = (x1, y1, x2, y2) => (x2 - x1)**2 + (y2 - y1)**2;
+        const dist = (x1, y1, x2, y2) => Math.sqrt(distSq(x1, y1, x2, y2));
 
         class Ripple {
             constructor(x, y) {
@@ -527,10 +539,7 @@
                 ctx.beginPath();
                 ctx.arc(this.pos.x, this.pos.y, this.size, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.shadowBlur = 5;
-                ctx.shadowColor = CONFIG.colors.food;
-                ctx.fill();
-                ctx.shadowBlur = 0;
+                // Removed shadowBlur for optimization
             }
         }
 
@@ -576,7 +585,7 @@
                 // Lifespan: 1 hour to 24 hours
                 this.lifespan = rand(60 * 60 * 1000, 24 * 60 * 60 * 1000); 
                 this.isDead = false;
-                this.isEaten = false; // NEW FLAG: If eaten, bypass float-up animation
+                this.isEaten = false; 
                 
                 this.energy = 100; 
                 this.maxEnergy = 100;
@@ -591,7 +600,7 @@
                 this.chatTimer = 0;
                 this.isTalking = false;
 
-                this.lastReproductionTime = 0; // Cooldown for reproduction
+                this.lastReproductionTime = 0; 
 
                 this.generateName();
             }
@@ -668,25 +677,25 @@
                 let cohCount = 0;
 
                 // Parameters
-                const desiredSeparation = 40 + this.size;
-                const neighborDist = 100;
+                const desiredSeparationSq = (40 + this.size)**2;
+                const neighborDistSq = 100**2;
 
                 for (let other of boids) {
                     if (other === this || other.isDead) continue;
                     
-                    let d = dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y);
+                    let dSq = Vector.distSq(this.pos, other.pos);
                     
                     // Separation: Avoid crowding
-                    if (d > 0 && d < desiredSeparation) {
+                    if (dSq > 0 && dSq < desiredSeparationSq) {
                         let diff = Vector.sub(this.pos, other.pos);
                         diff.normalize();
-                        diff.div(d); // Weight by distance
+                        diff.div(Math.sqrt(dSq)); // Weight by distance
                         sep.add(diff);
                         sepCount++;
                     }
 
                     // Alignment & Cohesion: Only with neighbors
-                    if (d > 0 && d < neighborDist) {
+                    if (dSq > 0 && dSq < neighborDistSq) {
                         // Stronger schooling if same species
                         let factor = (other.species.id === this.species.id) ? 2.0 : 0.5;
                         
@@ -745,24 +754,21 @@
                 if (!this.species.isPredator || this.isDead) return null;
 
                 let closestPrey = null;
-                let closestDist = Infinity;
+                let closestDistSq = Infinity;
+                let rangeSq = 300**2;
 
                 for (let prey of allFish) {
-                    // Rules for predation:
-                    // 1. Prey is not dead
-                    // 2. Prey is not self
-                    // 3. Prey is significantly smaller (0.6x size or less)
                     if (prey !== this && !prey.isDead && prey.size < this.size * 0.6) {
-                        let d = dist(this.pos.x, this.pos.y, prey.pos.x, prey.pos.y);
+                        let dSq = Vector.distSq(this.pos, prey.pos);
                         
                         // Check for eating
-                        if (d < this.size * 0.8) {
+                        if (dSq < (this.size * 0.8)**2) {
                             return prey; // CAUGHT!
                         }
 
                         // Find closest to chase
-                        if (d < 300 && d < closestDist) {
-                            closestDist = d;
+                        if (dSq < rangeSq && dSq < closestDistSq) {
+                            closestDistSq = dSq;
                             closestPrey = prey;
                         }
                     }
@@ -800,7 +806,7 @@
                                 other.species.id === this.species.id && 
                                 other.energy >= 80 && 
                                 Date.now() - other.lastReproductionTime > minCooldown &&
-                                dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 60 // Proximity check
+                                distSq(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 60**2 // Proximity check
                             );
 
                             if (potentialMate) {
@@ -816,7 +822,6 @@
                     }
 
                     // Rare Disease Check (approx 2-5% chance over lifetime)
-                    // Very small probability per frame
                     if (Math.random() < 0.0000005) {
                         this.isDead = true;
                         this.deathReason = "Sudden Illness";
@@ -861,15 +866,16 @@
 
                 // 1. Find Food
                 let target = null;
-                let closestDist = Infinity;
+                let closestDistSq = Infinity;
                 let closestFood = null;
                 
                 // Standard Food Seeking
+                let searchRadSq = 300**2;
                 for (let f of foodList) {
                     if (!f.eaten) {
-                        let d = dist(this.pos.x, this.pos.y, f.pos.x, f.pos.y);
-                        if (d < 300 && d < closestDist) {
-                            closestDist = d;
+                        let dSq = Vector.distSq(this.pos, f.pos);
+                        if (dSq < searchRadSq && dSq < closestDistSq) {
+                            closestDistSq = dSq;
                             closestFood = f;
                         }
                     }
@@ -877,7 +883,9 @@
 
                 if (closestFood) {
                     target = closestFood.pos;
-                    if (closestDist < this.size + 5) {
+                    // Eating check (squared)
+                    let eatDist = this.size + 5;
+                    if (closestDistSq < eatDist*eatDist) {
                         closestFood.eaten = true;
                         this.feed();
                     }
@@ -895,9 +903,9 @@
                 this.vel.add(this.acc);
                 
                 // Speed modifiers
-                let dToMouse = dist(this.pos.x, this.pos.y, mousePos.x, mousePos.y);
+                let dToMouseSq = Vector.distSq(this.pos, mousePos);
                 let speedMod = 1;
-                if (dToMouse < 150) speedMod = 0.3;
+                if (dToMouseSq < 150**2) speedMod = 0.3;
 
                 let energyFactor = Math.max(0.2, this.energy / this.maxEnergy);
                 speedMod *= energyFactor;
@@ -1003,16 +1011,19 @@
                 }
 
                 for(let i=0; i<5; i++) {
-                    particles.push({
-                        x: this.pos.x, y: this.pos.y,
-                        vx: rand(-1,1), vy: rand(-1,1),
-                        life: 1.0, color: '#fff'
-                    });
+                    // Capping particles to prevent slowdown
+                    if (particles.length < 300) {
+                        particles.push({
+                            x: this.pos.x, y: this.pos.y,
+                            vx: rand(-1,1), vy: rand(-1,1),
+                            life: 1.0, color: '#fff'
+                        });
+                    }
                 }
             }
 
             draw(ctx) {
-                if (this.isDead && this.isEaten) return; // Do not draw if instantly consumed
+                if (this.isDead && this.isEaten) return;
 
                 ctx.save();
                 ctx.translate(this.pos.x, this.pos.y);
@@ -1025,8 +1036,9 @@
                     let w = metrics.width + 20;
                     let h = 30;
                     ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-                    ctx.shadowColor = "rgba(0,0,0,0.1)";
-                    ctx.shadowBlur = 4;
+                    // ShadowBlur removed for chat bubble to save perf
+                    // ctx.shadowColor = "rgba(0,0,0,0.1)";
+                    // ctx.shadowBlur = 4;
                     ctx.beginPath();
                     ctx.roundRect(-w/2, -h/2, w, h, 10);
                     ctx.fill();
@@ -1128,8 +1140,7 @@
         // --- Core Systems ---
 
         const rand = (min, max) => Math.random() * (max - min) + min;
-        const dist = (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-
+        
         function init() {
             canvas = document.getElementById('gameCanvas');
             ctx = canvas.getContext('2d');
@@ -1189,7 +1200,6 @@
                 btn.classList.add('active');
                 btn.innerText = "🍂 Auto Feed: ON";
                 
-                // Drop food every 2 seconds
                 autoFeedTimer = setInterval(() => {
                     particles.push(new Food(rand(50, width - 50), -10));
                 }, 2000);
@@ -1214,10 +1224,14 @@
 
             if (isTalkMode) {
                 let clickedFish = null;
+                // Use distSq for interaction check too
                 for (let f of fishes) {
-                    if (!f.isDead && dist(x, y, f.pos.x, f.pos.y) < f.size + 20) {
-                        clickedFish = f;
-                        break;
+                    if (!f.isDead) {
+                        let dSq = Vector.distSq(new Vector(x, y), f.pos);
+                        if (dSq < (f.size + 20)**2) {
+                            clickedFish = f;
+                            break;
+                        }
                     }
                 }
 
@@ -1378,8 +1392,7 @@
             drawBackground();
 
             let foodItems = particles.filter(p => p instanceof Food);
-            let others = particles.filter(p => !(p instanceof Food));
-
+            
             ripples.forEach((r, i) => {
                 r.update();
                 r.draw(ctx);
@@ -1406,16 +1419,18 @@
                     
                     // Spawning blood cloud particle effect
                     for(let i=0; i<30; i++) {
-                        particles.push({
-                            x: fish.pos.x, y: fish.pos.y,
-                            vx: rand(-3,3), vy: rand(-3,3),
-                            life: 1.0, color: '#E74C3C' // Blood red
-                        });
+                        if(particles.length < 300) {
+                            particles.push({
+                                x: fish.pos.x, y: fish.pos.y,
+                                vx: rand(-3,3), vy: rand(-3,3),
+                                life: 1.0, color: '#E74C3C' // Blood red
+                            });
+                        }
                     }
                 }
             });
 
-            // Remove fish that have floated off screen
+            // Remove fish
             deadFish.forEach(fish => {
                 const index = fishes.indexOf(fish);
                 if (index > -1) {
@@ -1424,39 +1439,48 @@
                 }
             });
             
-            // Remove fish that were eaten immediately (no float up)
             eatenFish.forEach(fish => {
                 const index = fishes.indexOf(fish);
                 if (index > -1) {
-                    addToGraveyard(fish); // Still record the death
+                    addToGraveyard(fish); 
                     fishes.splice(index, 1);
                 }
             });
 
-            particles = particles.filter(p => {
-                if (p instanceof Food) return !p.eaten;
-                if (p instanceof Bubble) return true;
+            // Optimized Particle Loop (Backwards)
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
                 
-                // Generic particle removal
+                if (p instanceof Food) {
+                    if (p.eaten) {
+                        particles.splice(i, 1);
+                    }
+                    continue;
+                }
+                
+                if (p instanceof Bubble) {
+                    // Bubbles update themselves and handle looping, no removal needed
+                    p.update();
+                    p.draw(ctx);
+                    continue;
+                }
+
+                // Generic particles (blood, sparks)
                 if (p.life) {
                     p.x += p.vx;
                     p.y += p.vy;
                     p.life -= 0.05;
-                    return p.life > 0;
+                    
+                    if (p.life <= 0) {
+                        particles.splice(i, 1);
+                    } else {
+                        ctx.fillStyle = p.color ? p.color : `rgba(255, 255, 255, ${p.life})`;
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, 2, 0, Math.PI*2);
+                        ctx.fill();
+                    }
                 }
-                return true; 
-            });
-
-            // Draw generic particles (blood/birth)
-            others.forEach(p => {
-                if(p.draw) p.draw(ctx);
-                else {
-                    ctx.fillStyle = p.color ? p.color : `rgba(255, 255, 255, ${p.life})`;
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, 2, 0, Math.PI*2);
-                    ctx.fill();
-                }
-            });
+            }
         }
 
         init();
