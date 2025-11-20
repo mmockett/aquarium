@@ -303,21 +303,72 @@
     <script>
         // --- Fallback Data (Ghibli Style) ---
         const FALLBACK_NAMES = [
+            // Classics
             "Chihiro", "Haku", "Totoro", "Kiki", "Jiji", "Ponyo", "Sosuke", "Sophie", "Howl", "Calcifer", 
             "Markl", "Nausicaa", "Sheeta", "Pazu", "San", "Ashitaka", "Yubaba", "Kamaji", "Lin", "No-Face", 
-            "Baron", "Muta", "Haru", "Seiji", "Shizuku", "Arrietty", "Spiller", "Marnie", "Fujimoto", "Granmamare",
-            "Yakul", "Moro", "Turnip", "Zeniba", "Boh"
+            // The Cat Returns / Whisper of the Heart
+            "Baron", "Muta", "Haru", "Seiji", "Shizuku", "Natori", "Nao", "Toto",
+            // Arrietty / Marnie / Poppy Hill
+            "Arrietty", "Spiller", "Marnie", "Anna", "Umi", "Shun", "Pod", "Homily", "Sadako",
+            // Princess Mononoke Deep Cuts
+            "Yakul", "Moro", "Okami", "Nago", "Okkoto", "Gonza", "Toki", "Eboshi", "Jigo", "Kaya", "Hii-sama", "Kohroku",
+            // Spirited Away Extras
+            "Zeniba", "Boh", "Aogaeru", "Bandai-gaeru", "Chichiyaku", "Aniyaku",
+            // Howl's Extras
+            "Turnip", "Heen", "Lettie", "Honey", "Suliman",
+            // Earthsea
+            "Arren", "Therru", "Sparrowhawk", "Ged", "Tenar", "Tehanu", "Cob", "Hare",
+            // Wind Rises
+            "Jiro", "Nahoko", "Caproni", "Castorp", "Honjo", "Kayo",
+            // Ponyo Extras
+            "Fujimoto", "Granmamare", "Lisa", "Koichi", "Toki", "Yoshie", "Noriko", "Kumiko", "Karen",
+            // Kiki Extras
+            "Tombo", "Osono", "Fukuo", "Ursula", "Ket", "Maki", "Madame", "Barsa",
+            // Laputa Extras
+            "Dola", "Charles", "Louis", "Henri", "Motro", "Okami", "Muska", "Uncle Pom"
         ];
 
         const FALLBACK_PHRASES = {
-            'curious and bubbly': ["Sparkles!", "Bloop bloop!", "Is that food?", "Yum yum!", "Friend?", "Swimming!", "Happy bubbles!", "So shiny!"],
-            'playful, clicking, and mysterious': ["Click...", "Echoes...", "Hide and seek?", "Catch me!", "Spirits whisper...", "Tee hee!", "Invisible..."],
-            'slow, wise, and sleepy': ["The river knows...", "Zzz...", "Currents shift...", "Patience...", "Drifting...", "Ancient waters...", "Rest now."],
-            'majestic, ancient, and noble': ["Behold.", "The deep calls.", "Golden light.", "Respect the water.", "I watch over all.", "Grace.", "Silence."],
-            'silent, hungry, and eerie': ["...", "Ah... ah...", "Gold...", "Hungry...", "Feed me...", "Lonely..."],
-            'energetic, starlike, and fast': ["Zoom!", "Twinkle!", "Shooting star!", "Catch me!", "Light!", "Speed!"],
-            'aggressive, hunting, and sharp': ["Prey...", "Shadows...", "Snap!", "Watching...", "Hunger...", "Darkness..."],
-            'massive, slow, and insatiable': ["Gulp.", "Ancient hunger.", "Floating...", "Everything is food.", "Slowly...", "Grow..."]
+            'curious and bubbly': [
+                "Sparkles!", "Bloop bloop!", "Is that food?", "Yum yum!", "Friend?", "Swimming!", 
+                "Happy bubbles!", "So shiny!", "Did you see that?", "Round and round!", "Tee hee!", 
+                "Water is nice!", "Hello up there!", "Wiggle wiggle.", "Play with me!", "I found a bubble!"
+            ],
+            'playful, clicking, and mysterious': [
+                "Click...", "Echoes...", "Hide and seek?", "Catch me!", "Spirits whisper...", 
+                "Tee hee!", "Invisible...", "You can't see me.", "Secrets...", "The water remembers.", 
+                "Pop!", "Do you know the way?", "Turning...", "Softly now.", "I am here... and there."
+            ],
+            'slow, wise, and sleepy': [
+                "The river knows...", "Zzz...", "Currents shift...", "Patience...", "Drifting...", 
+                "Ancient waters...", "Rest now.", "Time flows like water.", "Hrmmm...", "No rush.", 
+                "The moss grows slow.", "Quiet thoughts.", "Deep breaths.", "Sleepy tides.", "A long journey."
+            ],
+            'majestic, ancient, and noble': [
+                "Behold.", "The deep calls.", "Golden light.", "Respect the water.", "I watch over all.", 
+                "Grace.", "Silence.", "The sky reflects here.", "Do not disturb the flow.", "I have seen ages.", 
+                "Noble currents.", "Rise above.", "Tranquility.", "The spirits are watching.", "Pure waters."
+            ],
+            'silent, hungry, and eerie': [
+                "...", "Ah... ah...", "Gold...", "Hungry...", "Feed me...", "Lonely...", 
+                "Empty...", "Want...", "More...", "Darkness...", "Cold...", "Waiting...", 
+                "Give...", "Shadow...", "Lost..."
+            ],
+            'energetic, starlike, and fast': [
+                "Zoom!", "Twinkle!", "Shooting star!", "Catch me!", "Light!", "Speed!", 
+                "Zap!", "Faster!", "Can't stop!", "Glowing!", "Look at me!", "Whoosh!", 
+                "Bright!", "Starlight!", "Burning bright!"
+            ],
+            'aggressive, hunting, and sharp': [
+                "Prey...", "Shadows...", "Snap!", "Watching...", "Hunger...", "Darkness...", 
+                "Closer...", "Hunt.", "Sharp teeth.", "Silent stalker.", "Fear me.", "Blood in the water.", 
+                "My domain.", "Trespasser.", "Got you."
+            ],
+            'massive, slow, and insatiable': [
+                "Gulp.", "Ancient hunger.", "Floating...", "Everything is food.", "Slowly...", 
+                "Grow...", "Endless...", "Mouth open.", "Drift to me.", "Heavy...", "Big water.", 
+                "Swallow whole.", "Deep belly.", "River god.", "Mountain of flesh."
+            ]
         };
 
         // --- Gemini API Integration ---
@@ -366,6 +417,7 @@
             }
         };
 
+        // Species list ordered by ascending cost for shop display
         const SPECIES = [
             {
                 id: 'basic',
@@ -572,7 +624,7 @@
         }
 
         class Fish {
-            constructor(type) {
+            constructor(type, isBorn = false) {
                 this.species = type;
                 this.name = "Spirit"; 
                 this.pos = new Vector(rand(100, width - 100), rand(100, height - 100));
@@ -585,6 +637,7 @@
                 this.size = type.size;
                 
                 this.birthTime = Date.now();
+                // Lifespan: 1 hour to 24 hours
                 this.lifespan = rand(60 * 60 * 1000, 24 * 60 * 60 * 1000); 
                 this.isDead = false;
                 this.isEaten = false; 
@@ -601,8 +654,19 @@
                 this.chatTimer = 0;
                 this.isTalking = false;
 
-                this.lastReproductionTime = Date.now(); 
                 this.romanceTarget = null; // Current target for reproduction
+
+                // MATURITY LOGIC FIX
+                if (!isBorn) {
+                    // Bought fish are adults:
+                    // 1. Backdate birthTime by 2 minutes so they pass the maturity check (> 1 min) immediately
+                    this.birthTime -= 120 * 1000;
+                    // 2. Clear cooldown so they can mate immediately
+                    this.lastReproductionTime = 0; 
+                } else {
+                    // Born fish start fresh and must wait
+                    this.lastReproductionTime = Date.now(); 
+                }
 
                 this.generateName();
             }
@@ -637,10 +701,12 @@
                 showToast(`New Spirits! ${this.name} and ${mate.name} welcome ${numOffspring} babies.`);
 
                 for (let i = 0; i < numOffspring; i++) {
-                    const child = new Fish(this.species);
+                    // Pass true to indicate this is a newborn
+                    const child = new Fish(this.species, true);
                     child.pos = new Vector(spawnPos.x + rand(-5,5), spawnPos.y + rand(-5,5)); // Mild offset
                     child.size = this.species.size * 0.2; 
                     child.maxSpeed *= 1.5; 
+                    // Babies inherit cooldown so they can't breed immediately
                     child.lastReproductionTime = Date.now() + rand(5 * 60 * 1000, 10 * 60 * 1000);
                     fishes.push(child);
                     
@@ -855,7 +921,12 @@
                 
                 let dToMouseSq = Vector.distSq(this.pos, mousePos);
                 let speedMod = 1;
-                if (dToMouseSq < 150**2) speedMod = 0.3;
+                
+                // CONDITIONAL HOVER SLOWDOWN
+                // Only apply slowdown if we are in "Talk to Spirits" mode
+                if (isTalkMode && dToMouseSq < 150**2) {
+                    speedMod = 0.3;
+                }
 
                 let energyFactor = Math.max(0.2, this.energy / this.maxEnergy);
                 speedMod *= energyFactor;
@@ -1079,7 +1150,8 @@
                 mousePos.y = e.clientY - rect.top;
             });
 
-            fishes.push(new Fish(SPECIES[0]));
+            // Initial fish are "bought" (adults)
+            fishes.push(new Fish(SPECIES[0], false));
             for(let i=0; i<20; i++) particles.push(new Bubble());
 
             initShop();
@@ -1223,8 +1295,8 @@
                 const canvas = document.getElementById(`preview-${s.id}`);
                 const pCtx = canvas.getContext('2d');
                 
-                // Create dummy fish
-                const dummy = new Fish(s);
+                // Create dummy fish (adult)
+                const dummy = new Fish(s, false);
                 dummy.pos.x = 30;
                 dummy.pos.y = 20;
                 dummy.size = Math.min(s.size, 15); // Limit size for icon
@@ -1241,7 +1313,8 @@
                 updateScore();
                 showToast("Summoning Spirit...");
                 
-                const f = new Fish(species);
+                // Pass false to indicate this is a bought adult
+                const f = new Fish(species, false);
                 f.pos.x = width / 2;
                 f.pos.y = height / 2;
                 fishes.push(f);
