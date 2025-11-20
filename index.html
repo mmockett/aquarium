@@ -43,10 +43,10 @@
             pointer-events: auto;
         }
 
-        .score-group {
+        .left-group {
             display: flex;
-            gap: 15px;
             align-items: center;
+            gap: 15px;
         }
 
         .score-container {
@@ -62,6 +62,27 @@
             display: flex;
             align-items: center;
             gap: 10px;
+        }
+
+        .help-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            font-family: 'Patrick Hand', cursive;
+            font-size: 24px;
+            color: #2b3a42;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+
+        .help-btn:hover {
+            transform: scale(1.1);
         }
 
         .button-group {
@@ -260,6 +281,112 @@
             text-align: center;
         }
 
+        #idlePrompt {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255,255,255,0.9);
+            font-size: 24px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 1s;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            font-family: 'Patrick Hand', cursive;
+        }
+
+        /* Overlays */
+        #helpOverlay, #restartOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 100;
+        }
+
+        #helpOverlay.show, #restartOverlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .help-modal, .restart-modal {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+            text-align: center;
+        }
+
+        .help-modal h2, .restart-modal h2 {
+            color: #2b3a42;
+            margin-top: 0;
+            border-bottom: 2px solid #a4dddb;
+            padding-bottom: 10px;
+        }
+
+        .help-modal h3 {
+            color: #E76F51;
+            margin-bottom: 5px;
+            text-align: left;
+        }
+
+        .help-modal p {
+            color: #555;
+            line-height: 1.5;
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        .restart-modal p {
+            color: #555;
+            font-size: 18px;
+            margin: 20px 0;
+        }
+
+        .restart-btn {
+            background: #E76F51;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-family: 'Patrick Hand', cursive;
+            font-size: 20px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 10px rgba(231, 111, 81, 0.3);
+        }
+
+        .restart-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 15px rgba(231, 111, 81, 0.4);
+        }
+
+        .close-help {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #888;
+        }
+
+        .close-help:hover {
+            color: #333;
+        }
+
         @keyframes fadeOut {
             to { opacity: 0; }
         }
@@ -272,11 +399,12 @@
 
     <div id="ui-layer">
         <div class="hud-top">
-            <div class="score-group">
+            <div class="left-group">
                 <div class="score-container">
                     <div class="currency-icon"></div>
                     <span id="scoreDisplay">0</span>
                 </div>
+                <button class="help-btn" onclick="toggleHelp()">?</button>
             </div>
             
             <div class="button-group">
@@ -291,11 +419,42 @@
         
         <div id="toast">Summoning...</div>
         <div class="tutorial-text">Click to feed the spirits...</div>
+        <div id="idlePrompt">The spirits are waiting... click to offer food.</div>
 
         <div class="bottom-ui">
             <div class="shop-container" id="shopContainer"></div>
             <div class="graveyard-container" id="graveyardList">
-                <div class="graveyard-title">Spirit Memories</div>
+                <div class="graveyard-title">Spirit Memories (0)</div>
+            </div>
+        </div>
+
+        <div id="helpOverlay">
+            <div class="help-modal">
+                <span class="close-help" onclick="toggleHelp()">×</span>
+                <h2>Aquarium Guide</h2>
+                
+                <h3>🍂 Feeding & Growth</h3>
+                <p>Click to drop food. Fish eat to grow larger and earn you Spirit Orbs. Keep them well-fed (Energy > 0) or they may starve!</p>
+                
+                <h3>❤️ Reproduction</h3>
+                <p>Two well-fed adult fish of the same species may fall in love and create offspring. Keep the population under 50 to allow new births.</p>
+                
+                <h3>🦈 Predators & Prey</h3>
+                <p>Some spirits hunt others! Predators will lock onto smaller prey. Prey that have eaten recently (within 20s) can sprint to escape.</p>
+                
+                <h3>✨ Talk to Spirits</h3>
+                <p>Toggle "Talk" mode to click on spirits and hear their thoughts. In this mode, they slow down for you.</p>
+                
+                <h3>💀 The Circle of Life</h3>
+                <p>Spirits live for a random time (1-24 hours). When they pass, they join the Spirit Memories.</p>
+            </div>
+        </div>
+
+        <div id="restartOverlay">
+            <div class="restart-modal">
+                <h2>The Waters are Still</h2>
+                <p>All spirits have departed, and you lack the orbs to summon more.</p>
+                <button class="restart-btn" onclick="restartGame()">Begin Anew</button>
             </div>
         </div>
     </div>
@@ -303,28 +462,17 @@
     <script>
         // --- Fallback Data (Ghibli Style) ---
         const FALLBACK_NAMES = [
-            // Classics
             "Chihiro", "Haku", "Totoro", "Kiki", "Jiji", "Ponyo", "Sosuke", "Sophie", "Howl", "Calcifer", 
             "Markl", "Nausicaa", "Sheeta", "Pazu", "San", "Ashitaka", "Yubaba", "Kamaji", "Lin", "No-Face", 
-            // The Cat Returns / Whisper of the Heart
             "Baron", "Muta", "Haru", "Seiji", "Shizuku", "Natori", "Nao", "Toto",
-            // Arrietty / Marnie / Poppy Hill
             "Arrietty", "Spiller", "Marnie", "Anna", "Umi", "Shun", "Pod", "Homily", "Sadako",
-            // Princess Mononoke Deep Cuts
             "Yakul", "Moro", "Okami", "Nago", "Okkoto", "Gonza", "Toki", "Eboshi", "Jigo", "Kaya", "Hii-sama", "Kohroku",
-            // Spirited Away Extras
             "Zeniba", "Boh", "Aogaeru", "Bandai-gaeru", "Chichiyaku", "Aniyaku",
-            // Howl's Extras
             "Turnip", "Heen", "Lettie", "Honey", "Suliman",
-            // Earthsea
             "Arren", "Therru", "Sparrowhawk", "Ged", "Tenar", "Tehanu", "Cob", "Hare",
-            // Wind Rises
             "Jiro", "Nahoko", "Caproni", "Castorp", "Honjo", "Kayo",
-            // Ponyo Extras
             "Fujimoto", "Granmamare", "Lisa", "Koichi", "Toki", "Yoshie", "Noriko", "Kumiko", "Karen",
-            // Kiki Extras
             "Tombo", "Osono", "Fukuo", "Ursula", "Ket", "Maki", "Madame", "Barsa",
-            // Laputa Extras
             "Dola", "Charles", "Louis", "Henri", "Motro", "Okami", "Muska", "Uncle Pom"
         ];
 
@@ -417,7 +565,6 @@
             }
         };
 
-        // Species list ordered by ascending cost for shop display
         const SPECIES = [
             {
                 id: 'basic',
@@ -512,26 +659,30 @@
         let isAutoFeed = false;
         let autoFeedTimer = null;
         let mousePos = { x: -9999, y: -9999 };
+        let deadCount = 0;
+        let idleTimer = null;
 
         // --- Classes ---
 
         class Vector {
             constructor(x, y) { this.x = x; this.y = y; }
-            add(v) { this.x += v.x; this.y += v.y; }
-            sub(v) { this.x -= v.x; this.y -= v.y; }
-            mult(n) { this.x *= n; this.y *= n; }
-            div(n) { if(n!==0) { this.x /= n; this.y /= n; } }
+            add(v) { this.x += v.x; this.y += v.y; return this; }
+            sub(v) { this.x -= v.x; this.y -= v.y; return this; }
+            mult(n) { this.x *= n; this.y *= n; return this; }
+            div(n) { if(n!==0) { this.x /= n; this.y /= n; } return this; }
             mag() { return Math.sqrt(this.x * this.x + this.y * this.y); }
             magSq() { return this.x * this.x + this.y * this.y; }
             normalize() {
                 let m = this.mag();
                 if (m !== 0) this.mult(1/m);
+                return this;
             }
             limit(max) {
                 if (this.magSq() > max * max) {
                     this.normalize();
                     this.mult(max);
                 }
+                return this;
             }
             static sub(v1, v2) { return new Vector(v1.x - v2.x, v1.y - v2.y); }
             static distSq(v1, v2) {
@@ -575,7 +726,6 @@
                 this.size = 4;
                 this.eaten = false;
                 
-                // Natural drift properties
                 this.wobbleSpeed = rand(0.002, 0.005);
                 this.wobbleDist = rand(0.2, 0.6);
                 this.timeOffset = rand(0, 1000);
@@ -585,7 +735,6 @@
                 this.vel.mult(0.95); 
                 this.pos.add(this.vel);
                 
-                // Side to side drift
                 this.pos.x += Math.sin(Date.now() * this.wobbleSpeed + this.timeOffset) * this.wobbleDist;
                 
                 if (this.pos.y > height) this.eaten = true; 
@@ -637,13 +786,13 @@
                 this.size = type.size;
                 
                 this.birthTime = Date.now();
-                // Lifespan: 1 hour to 24 hours
                 this.lifespan = rand(60 * 60 * 1000, 24 * 60 * 60 * 1000); 
                 this.isDead = false;
                 this.isEaten = false; 
                 
                 this.energy = 100; 
                 this.maxEnergy = 100;
+                this.lastAteTime = 0; 
 
                 this.digestionSlowdown = 1.0; 
                 
@@ -654,17 +803,14 @@
                 this.chatTimer = 0;
                 this.isTalking = false;
 
-                this.romanceTarget = null; // Current target for reproduction
+                this.romanceTarget = null; 
+                this.huntingTarget = null;
 
-                // MATURITY LOGIC FIX
+                // MATURITY LOGIC
                 if (!isBorn) {
-                    // Bought fish are adults:
-                    // 1. Backdate birthTime by 2 minutes so they pass the maturity check (> 1 min) immediately
                     this.birthTime -= 120 * 1000;
-                    // 2. Clear cooldown so they can mate immediately
                     this.lastReproductionTime = 0; 
                 } else {
-                    // Born fish start fresh and must wait
                     this.lastReproductionTime = Date.now(); 
                 }
 
@@ -701,17 +847,15 @@
                 showToast(`New Spirits! ${this.name} and ${mate.name} welcome ${numOffspring} babies.`);
 
                 for (let i = 0; i < numOffspring; i++) {
-                    // Pass true to indicate this is a newborn
                     const child = new Fish(this.species, true);
-                    child.pos = new Vector(spawnPos.x + rand(-5,5), spawnPos.y + rand(-5,5)); // Mild offset
+                    child.pos = new Vector(spawnPos.x + rand(-5,5), spawnPos.y + rand(-5,5)); 
                     child.size = this.species.size * 0.2; 
                     child.maxSpeed *= 1.5; 
-                    // Babies inherit cooldown so they can't breed immediately
                     child.lastReproductionTime = Date.now() + rand(5 * 60 * 1000, 10 * 60 * 1000);
                     fishes.push(child);
                     
-                    for(let j=0; j<10; j++) {
-                        if(particles.length < 300) {
+                    for(let j=0; j<8; j++) {
+                        if(particles.length < 200) {
                             particles.push({
                                 x: spawnPos.x, y: spawnPos.y,
                                 vx: rand(-2,2), vy: rand(-2,2),
@@ -725,80 +869,120 @@
                 this.lastReproductionTime = Date.now() + cooldown;
                 mate.lastReproductionTime = Date.now() + cooldown;
                 
-                // Reset targets
                 this.romanceTarget = null;
                 mate.romanceTarget = null;
             }
 
-            flock(boids) {
+            computeBehaviors(allFish) {
                 let sep = new Vector(0, 0);
                 let ali = new Vector(0, 0);
                 let coh = new Vector(0, 0);
                 let sepCount = 0, aliCount = 0, cohCount = 0;
+                
                 const desiredSeparationSq = (40 + this.size)**2;
                 const neighborDistSq = 100**2;
+                
+                let closestPrey = null;
+                let closestPreyDistSq = Infinity;
+                const huntRangeSq = 250**2;
+                
+                let fleeVector = new Vector(0, 0);
+                const fleeRangeSq = 150**2;
+                
+                const amPredator = this.species.isPredator;
+                const amPrey = !amPredator;
 
-                for (let other of boids) {
+                for (let other of allFish) {
                     if (other === this || other.isDead) continue;
+                    
                     let dSq = Vector.distSq(this.pos, other.pos);
-                    if (dSq > 0 && dSq < desiredSeparationSq) {
-                        let diff = Vector.sub(this.pos, other.pos);
-                        diff.normalize();
-                        diff.div(Math.sqrt(dSq)); 
-                        sep.add(diff);
-                        sepCount++;
+
+                    if (dSq < neighborDistSq) {
+                        if (dSq < desiredSeparationSq) {
+                            let diff = Vector.sub(this.pos, other.pos);
+                            diff.normalize();
+                            diff.div(Math.sqrt(dSq)); 
+                            sep.add(diff);
+                            sepCount++;
+                        }
+                        
+                        if (other.species.id === this.species.id) {
+                             let alignVel = new Vector(other.vel.x, other.vel.y);
+                             ali.add(alignVel);
+                             aliCount++;
+                             
+                             let cohPos = new Vector(other.pos.x, other.pos.y);
+                             coh.add(cohPos);
+                             cohCount++;
+                        }
                     }
-                    if (dSq > 0 && dSq < neighborDistSq) {
-                        let factor = (other.species.id === this.species.id) ? 2.0 : 0.5;
-                        let alignVel = new Vector(other.vel.x, other.vel.y);
-                        alignVel.mult(factor);
-                        ali.add(alignVel);
-                        aliCount++;
-                        let cohPos = new Vector(other.pos.x, other.pos.y);
-                        coh.add(cohPos);
-                        cohCount++;
+                    
+                    if (amPredator) {
+                        if (!other.species.isPredator && other.size < this.size * 0.6) {
+                             if (dSq < (this.size * 0.8)**2) {
+                                 if (dSq < closestPreyDistSq && dSq < huntRangeSq) {
+                                     closestPreyDistSq = dSq;
+                                     closestPrey = other;
+                                 }
+                            } else if (dSq < huntRangeSq && dSq < closestPreyDistSq) {
+                                closestPreyDistSq = dSq;
+                                closestPrey = other;
+                            }
+                        }
+                    }
+                    
+                    if (amPrey && other.species.isPredator) {
+                        if (dSq < fleeRangeSq) {
+                            let diff = Vector.sub(this.pos, other.pos);
+                            diff.normalize();
+                            fleeVector.add(diff);
+                        }
                     }
                 }
+
                 if (sepCount > 0) {
                     sep.div(sepCount); sep.normalize(); sep.mult(this.maxSpeed); sep.sub(this.vel); sep.limit(this.maxForce * 2.0);
+                    this.acc.add(sep.mult(1.5));
                 }
                 if (aliCount > 0) {
                     ali.div(aliCount); ali.normalize(); ali.mult(this.maxSpeed); ali.sub(this.vel); ali.limit(this.maxForce);
+                    this.acc.add(ali.mult(1.0));
                 }
                 if (cohCount > 0) {
                     coh.div(cohCount);
                     let desired = Vector.sub(coh, this.pos);
                     desired.normalize(); desired.mult(this.maxSpeed);
                     let steer = Vector.sub(desired, this.vel); steer.limit(this.maxForce);
-                    coh = steer;
+                    this.acc.add(steer.mult(1.0));
                 }
-                sep.mult(1.5); ali.mult(1.0); coh.mult(1.0);
-                this.acc.add(sep); this.acc.add(ali); this.acc.add(coh);
-            }
 
-            hunt(allFish) {
-                if (!this.species.isPredator || this.isDead) return null;
-                let closestPrey = null;
-                let closestDistSq = Infinity;
-                let rangeSq = 300**2;
+                if (amPredator && closestPrey) {
+                     this.huntingTarget = closestPrey; 
+                     let desired = Vector.sub(closestPrey.pos, this.pos);
+                     desired.normalize();
+                     desired.mult(this.maxSpeed * 1.2);
+                     let steer = Vector.sub(desired, this.vel);
+                     steer.limit(this.maxForce * 1.5);
+                     this.acc.add(steer);
+                }
 
-                for (let prey of allFish) {
-                    if (prey !== this && !prey.isDead && prey.size < this.size * 0.6) {
-                        let dSq = Vector.distSq(this.pos, prey.pos);
-                        if (dSq < (this.size * 0.8)**2) return prey; 
-                        if (dSq < rangeSq && dSq < closestDistSq) {
-                            closestDistSq = dSq;
-                            closestPrey = prey;
+                if (amPrey && (fleeVector.x !== 0 || fleeVector.y !== 0)) {
+                    if (Date.now() - this.lastAteTime < 20000) {
+                        fleeVector.normalize();
+                        fleeVector.mult(this.maxSpeed * 2.0); 
+                        let steer = Vector.sub(fleeVector, this.vel);
+                        steer.limit(this.maxForce * 3.0);
+                        this.acc.add(steer);
+                        
+                        if (Math.random() < 0.2 && particles.length < 200) {
+                             particles.push({
+                                x: this.pos.x, y: this.pos.y,
+                                vx: rand(-1,1), vy: rand(-1,1),
+                                life: 0.5, color: '#fff'
+                             });
                         }
                     }
                 }
-                if (closestPrey) {
-                    let desired = new Vector(closestPrey.pos.x - this.pos.x, closestPrey.pos.y - this.pos.y);
-                    desired.normalize(); desired.mult(this.maxSpeed * 1.2); 
-                    let steer = Vector.sub(desired, this.vel); steer.limit(this.maxForce * 1.5);
-                    this.acc.add(steer);
-                }
-                return null;
             }
 
             update(foodList, allFish) {
@@ -806,42 +990,33 @@
                     this.energy -= 0.006;
                     if (this.digestionSlowdown < 1.0) this.digestionSlowdown += 0.002;
 
-                    // --- Romance & Reproduction ---
-                    const maturityAge = 60 * 1000;
-                    const minCooldown = 5 * 60 * 1000;
-                    
-                    // 1. Check if existing target is still valid
-                    if (this.romanceTarget) {
-                        if (this.romanceTarget.isDead || 
-                            this.energy < 80 || 
-                            this.romanceTarget.energy < 80 ||
-                            Vector.distSq(this.pos, this.romanceTarget.pos) > 300**2) {
-                            this.romanceTarget = null; // Break up
-                        }
-                    }
-
-                    // 2. Try to find a mate (throttled)
-                    if (!this.romanceTarget && Math.random() < 0.02 && fishes.length <= 50) {
-                        if (Date.now() - this.birthTime > maturityAge &&
-                            Date.now() - this.lastReproductionTime > minCooldown && 
-                            this.energy >= 80) {
-                            
-                            let potentialMate = allFish.find(other => 
+                    if (Math.random() < 0.02 && fishes.length <= 50) {
+                         const maturityAge = 60 * 1000;
+                         const minCooldown = 5 * 60 * 1000;
+                         
+                         if (!this.romanceTarget && 
+                             Date.now() - this.birthTime > maturityAge &&
+                             Date.now() - this.lastReproductionTime > minCooldown && 
+                             this.energy >= 80) {
+                             
+                             let potentialMate = allFish.find(other => 
                                 other !== this && 
                                 other.species.id === this.species.id && 
                                 other.energy >= 80 && 
                                 Date.now() - other.birthTime > maturityAge && 
                                 Date.now() - other.lastReproductionTime > minCooldown &&
-                                distSq(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 200**2 // Sensing range
-                            );
-
-                            if (potentialMate) {
-                                this.romanceTarget = potentialMate;
-                            }
-                        }
+                                distSq(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 200**2 
+                             );
+                             if (potentialMate) this.romanceTarget = potentialMate;
+                         }
                     }
 
-                    // Death Checks
+                    if (this.romanceTarget) {
+                         if (this.romanceTarget.isDead || this.energy < 80 || Vector.distSq(this.pos, this.romanceTarget.pos) > 300**2) {
+                             this.romanceTarget = null;
+                         }
+                    }
+
                     if (Date.now() - this.birthTime > this.lifespan || this.energy <= 0) {
                         this.isDead = true;
                         this.deathReason = this.energy <= 0 ? "Starved" : "Old Age";
@@ -852,13 +1027,15 @@
                     }
                 }
 
-                if (this.species.isPredator) {
-                    let eatenPrey = this.hunt(allFish);
-                    if (eatenPrey) {
-                        eatenPrey.isDead = true;
-                        eatenPrey.deathReason = `Eaten by ${this.name}`;
-                        eatenPrey.isEaten = true; 
+                if (this.species.isPredator && this.huntingTarget) {
+                    if (this.huntingTarget.isDead || Vector.distSq(this.pos, this.huntingTarget.pos) > 400**2) {
+                        this.huntingTarget = null;
+                    } else if (Vector.distSq(this.pos, this.huntingTarget.pos) < (this.size * 0.8)**2) {
+                        this.huntingTarget.isDead = true;
+                        this.huntingTarget.deathReason = `Eaten by ${this.name}`;
+                        this.huntingTarget.isEaten = true;
                         this.feed();
+                        this.huntingTarget = null;
                     }
                 }
 
@@ -902,17 +1079,15 @@
                     }
                 }
 
-                // Prioritize Food, then Romance, then Flocking
                 if (target) {
                     this.seek(target);
                 } else if (this.romanceTarget) {
                     this.seek(this.romanceTarget.pos);
-                    // Check for close contact to spawn
                     if (distSq(this.pos.x, this.pos.y, this.romanceTarget.pos.x, this.romanceTarget.pos.y) < (this.size + this.romanceTarget.size)**2) {
                          this.reproduce(this.romanceTarget);
                     }
                 } else {
-                    this.flock(allFish);
+                    this.computeBehaviors(allFish);
                     this.wander(); 
                     this.boundaries();
                 }
@@ -922,8 +1097,6 @@
                 let dToMouseSq = Vector.distSq(this.pos, mousePos);
                 let speedMod = 1;
                 
-                // CONDITIONAL HOVER SLOWDOWN
-                // Only apply slowdown if we are in "Talk to Spirits" mode
                 if (isTalkMode && dToMouseSq < 150**2) {
                     speedMod = 0.3;
                 }
@@ -998,6 +1171,7 @@
                 updateScore();
                 this.energy = Math.min(this.maxEnergy, this.energy + 30);
                 this.digestionSlowdown = 0.5; 
+                this.lastAteTime = Date.now(); 
 
                 const maxSize = this.species.size * 3.0; 
                 if (this.size < maxSize) {
@@ -1006,7 +1180,7 @@
                 }
 
                 for(let i=0; i<5; i++) {
-                    if (particles.length < 300) {
+                    if (particles.length < 200) {
                         particles.push({
                             x: this.pos.x, y: this.pos.y,
                             vx: rand(-1,1), vy: rand(-1,1),
@@ -1055,13 +1229,11 @@
                 ctx.shadowColor = 'rgba(0,0,0,0.2)';
                 ctx.shadowBlur = 10;
 
-                // Body
                 ctx.fillStyle = this.species.colorBody;
                 ctx.beginPath();
                 ctx.ellipse(0, 0, this.size, this.size * 0.6, 0, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Eye
                 if (this.isDead) {
                      ctx.strokeStyle = '#333';
                      ctx.lineWidth = 2;
@@ -1082,7 +1254,6 @@
                     ctx.fill();
                 }
 
-                // Tail
                 ctx.fillStyle = this.species.colorFin;
                 let tailWag = this.isDead ? 0 : Math.sin(this.tailAngle) * (this.size * 0.5);
                 ctx.beginPath();
@@ -1096,7 +1267,6 @@
                 }
                 ctx.fill();
 
-                // Fin
                 ctx.fillStyle = this.species.colorFin; 
                 ctx.globalAlpha = this.isDead ? 0.4 : 0.8;
                 ctx.beginPath();
@@ -1105,7 +1275,6 @@
                 ctx.quadraticCurveTo(-this.size * 0.5, this.size + finWag, 0, this.size * 0.8);
                 ctx.fill();
 
-                // Top Fin
                 if (this.species.finType !== 'simple') {
                     ctx.beginPath();
                     ctx.moveTo(0, -this.size * 0.5);
@@ -1161,6 +1330,12 @@
                 score += fishes.length;
                 updateScore();
             }, 3000);
+
+            // Start idle timer
+            idleTimer = setTimeout(() => {
+                const el = document.getElementById('idlePrompt');
+                if(el) el.style.opacity = 1;
+            }, 60000); // 60 seconds
         }
 
         function resize() {
@@ -1202,6 +1377,11 @@
             }
         }
 
+        function toggleHelp() {
+            const overlay = document.getElementById('helpOverlay');
+            overlay.classList.toggle('show');
+        }
+
         function showToast(msg) {
             const t = document.getElementById('toast');
             t.innerText = msg;
@@ -1214,9 +1394,16 @@
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
+            // Clear idle timer on first interaction
+            if (idleTimer) {
+                clearTimeout(idleTimer);
+                idleTimer = null;
+                const el = document.getElementById('idlePrompt');
+                if(el) el.style.opacity = 0;
+            }
+
             if (isTalkMode) {
                 let clickedFish = null;
-                // Use distSq for interaction check too
                 for (let f of fishes) {
                     if (!f.isDead) {
                         let dSq = Vector.distSq(new Vector(x, y), f.pos);
@@ -1251,6 +1438,9 @@
                 <span>${reason} after ${mins} minutes</span>
             `;
             list.insertBefore(div, list.children[1]); 
+            
+            deadCount++;
+            document.querySelector('.graveyard-title').innerText = `Spirit Memories (${deadCount})`;
         }
 
         function initShop() {
@@ -1262,7 +1452,6 @@
                 el.className = 'fish-card';
                 el.id = `shop-item-${s.id}`;
                 
-                // Canvas for icon
                 const canvas = document.createElement('canvas');
                 canvas.width = 60;
                 canvas.height = 40;
@@ -1285,7 +1474,6 @@
                 container.appendChild(el);
             });
             
-            // Render icons
             renderShopIcons();
             updateShopUI();
         }
@@ -1295,11 +1483,10 @@
                 const canvas = document.getElementById(`preview-${s.id}`);
                 const pCtx = canvas.getContext('2d');
                 
-                // Create dummy fish (adult)
                 const dummy = new Fish(s, false);
                 dummy.pos.x = 30;
                 dummy.pos.y = 20;
-                dummy.size = Math.min(s.size, 15); // Limit size for icon
+                dummy.size = Math.min(s.size, 15); 
                 dummy.angle = 0;
                 
                 pCtx.clearRect(0, 0, 60, 40);
@@ -1313,7 +1500,6 @@
                 updateScore();
                 showToast("Summoning Spirit...");
                 
-                // Pass false to indicate this is a bought adult
                 const f = new Fish(species, false);
                 f.pos.x = width / 2;
                 f.pos.y = height / 2;
@@ -1339,6 +1525,34 @@
                     el.classList.remove('affordable');
                 }
             });
+        }
+
+        function checkGameOver() {
+            if (fishes.length === 0 && score < 100) {
+                document.getElementById('restartOverlay').classList.add('show');
+            }
+        }
+
+        function restartGame() {
+            score = 0;
+            fishes = [];
+            particles = [];
+            ripples = [];
+            deadCount = 0;
+            
+            document.getElementById('scoreDisplay').innerText = '0';
+            document.querySelector('.graveyard-title').innerText = 'Spirit Memories (0)';
+            
+            const list = document.getElementById('graveyardList');
+            while (list.children.length > 1) {
+                list.removeChild(list.lastChild);
+            }
+            
+            fishes.push(new Fish(SPECIES[0], false));
+            
+            document.getElementById('restartOverlay').classList.remove('show');
+            
+            updateShopUI();
         }
 
         function drawBackground() {
@@ -1397,7 +1611,6 @@
                 f.draw(ctx);
             });
 
-            // Lists for post-processing removal
             let deadFish = [];
             let eatenFish = []; 
 
@@ -1410,20 +1623,18 @@
                 } else if (status === 'eaten') {
                     eatenFish.push(fish);
                     
-                    // Spawning blood cloud particle effect
-                    for(let i=0; i<30; i++) {
-                        if(particles.length < 300) {
+                    for(let i=0; i<15; i++) { // Reduced from 30 to 15
+                        if(particles.length < 200) {
                             particles.push({
                                 x: fish.pos.x, y: fish.pos.y,
                                 vx: rand(-3,3), vy: rand(-3,3),
-                                life: 1.0, color: '#E74C3C' // Blood red
+                                life: 1.0, color: '#E74C3C' 
                             });
                         }
                     }
                 }
             });
 
-            // Remove fish
             deadFish.forEach(fish => {
                 const index = fishes.indexOf(fish);
                 if (index > -1) {
@@ -1439,6 +1650,11 @@
                     fishes.splice(index, 1);
                 }
             });
+            
+            // Check for Game Over
+            if (deadFish.length > 0 || eatenFish.length > 0) {
+                checkGameOver();
+            }
 
             // Optimized Particle Loop (Backwards)
             for (let i = particles.length - 1; i >= 0; i--) {
@@ -1457,7 +1673,6 @@
                     continue;
                 }
 
-                // Generic particles (blood, sparks)
                 if (p.life) {
                     p.x += p.vx;
                     p.y += p.vy;
