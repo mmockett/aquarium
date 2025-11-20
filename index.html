@@ -129,7 +129,6 @@
             bottom: 20px;
             right: 20px;
             width: 220px;
-            /* Adjusted height to force scroll at ~5 items */
             max-height: 200px; 
             background: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(4px);
@@ -144,7 +143,6 @@
             gap: 8px;
         }
 
-        /* Custom scrollbar for graveyard */
         .graveyard-container::-webkit-scrollbar {
             width: 6px;
         }
@@ -164,7 +162,7 @@
             margin-bottom: 5px;
             position: sticky;
             top: 0;
-            background: rgba(0,0,0,0.0); /* Transparent but keeps space */
+            background: rgba(0,0,0,0.0);
             backdrop-filter: blur(0);
         }
 
@@ -172,7 +170,7 @@
             font-size: 14px;
             border-bottom: 1px solid rgba(255,255,255,0.05);
             padding-bottom: 4px;
-            flex-shrink: 0; /* Prevent squishing */
+            flex-shrink: 0; 
         }
 
         .tombstone span {
@@ -193,6 +191,9 @@
             position: relative;
             opacity: 0.8;
             border: 2px solid transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .fish-card:hover {
@@ -212,13 +213,8 @@
             box-shadow: 0 0 15px rgba(136, 225, 213, 0.5);
         }
 
-        .fish-preview {
-            width: 60px;
-            height: 40px;
-            margin: 0 auto 5px;
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
+        .fish-preview-canvas {
+            margin-bottom: 5px;
         }
 
         .fish-name {
@@ -295,13 +291,32 @@
     </div>
 
     <script>
+        // --- Fallback Data (Ghibli Style) ---
+        const FALLBACK_NAMES = [
+            "Chihiro", "Haku", "Totoro", "Kiki", "Jiji", "Ponyo", "Sosuke", "Sophie", "Howl", "Calcifer", 
+            "Markl", "Nausicaa", "Sheeta", "Pazu", "San", "Ashitaka", "Yubaba", "Kamaji", "Lin", "No-Face", 
+            "Baron", "Muta", "Haru", "Seiji", "Shizuku", "Arrietty", "Spiller", "Marnie", "Fujimoto", "Granmamare",
+            "Yakul", "Moro", "Turnip", "Zeniba", "Boh"
+        ];
+
+        const FALLBACK_PHRASES = {
+            'curious and bubbly': ["Sparkles!", "Bloop bloop!", "Is that food?", "Yum yum!", "Friend?", "Swimming!", "Happy bubbles!", "So shiny!"],
+            'playful, clicking, and mysterious': ["Click...", "Echoes...", "Hide and seek?", "Catch me!", "Spirits whisper...", "Tee hee!", "Invisible..."],
+            'slow, wise, and sleepy': ["The river knows...", "Zzz...", "Currents shift...", "Patience...", "Drifting...", "Ancient waters...", "Rest now."],
+            'majestic, ancient, and noble': ["Behold.", "The deep calls.", "Golden light.", "Respect the water.", "I watch over all.", "Grace.", "Silence."],
+            'silent, hungry, and eerie': ["...", "Ah... ah...", "Gold...", "Hungry...", "Feed me...", "Lonely..."],
+            'energetic, starlike, and fast': ["Zoom!", "Twinkle!", "Shooting star!", "Catch me!", "Light!", "Speed!"]
+        };
+
         // --- Gemini API Integration ---
         const apiKey = ""; // Injected by environment
 
         async function callGemini(prompt) {
-            const delays = [1000, 2000, 4000, 8000, 16000];
+            if (!apiKey) return null; 
+
+            const delays = [1000, 2000, 4000];
             
-            for (let attempt = 0; attempt <= 5; attempt++) {
+            for (let attempt = 0; attempt <= 2; attempt++) {
                 try {
                     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
                         method: 'POST',
@@ -316,13 +331,11 @@
                     const data = await response.json();
                     return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
                 } catch (e) {
-                    if (attempt === 5) {
-                        console.error("Gemini Error after retries:", e);
-                        return null;
-                    }
+                    console.warn("Gemini API attempt failed, using fallback later.");
                     await new Promise(resolve => setTimeout(resolve, delays[attempt]));
                 }
             }
+            return null;
         }
 
         // --- Configuration & Assets ---
@@ -354,6 +367,17 @@
                 personality: 'curious and bubbly'
             },
             {
+                id: 'starbit',
+                name: 'Star Bit Guppy',
+                cost: 250,
+                colorBody: '#FFD93D', 
+                colorFin: '#FFF',
+                size: 10,
+                speed: 4.0,
+                finType: 'simple',
+                personality: 'energetic, starlike, and fast'
+            },
+            {
                 id: 'kodama',
                 name: 'Kodama Tetra',
                 cost: 350,
@@ -363,6 +387,17 @@
                 speed: 3.5,
                 finType: 'glow',
                 personality: 'playful, clicking, and mysterious'
+            },
+            {
+                id: 'noface',
+                name: 'No-Face Puffer',
+                cost: 600,
+                colorBody: '#1a1a1a', 
+                colorFin: '#333',
+                size: 22,
+                speed: 1.5,
+                finType: 'simple',
+                personality: 'silent, hungry, and eerie'
             },
             {
                 id: 'forest',
@@ -377,13 +412,13 @@
             },
             {
                 id: 'sun',
-                name: 'Sun Dragon',
+                name: 'Sky Spirit',
                 cost: 2000,
-                colorBody: '#E9C46A', 
-                colorFin: '#D62828',
+                colorBody: '#fff', 
+                colorFin: '#48CAE4',
                 size: 35,
                 speed: 3.0,
-                finType: 'fancy',
+                finType: 'flowing',
                 personality: 'majestic, ancient, and noble'
             }
         ];
@@ -508,12 +543,11 @@
                 this.size = type.size;
                 
                 this.birthTime = Date.now();
-                this.lifespan = rand(2 * 60 * 1000, 5 * 60 * 1000); 
+                this.lifespan = rand(15 * 60 * 1000, 25 * 60 * 1000); 
                 this.isDead = false;
                 
-                // --- Biology Stats ---
-                this.energy = 100; // Hunger meter (0-100)
-                this.fullness = 0; // Stomach capacity (0-100)
+                this.energy = 100; 
+                this.fullness = 0; 
                 this.maxEnergy = 100;
                 this.maxFullness = 100;
 
@@ -529,8 +563,13 @@
 
             async generateName() {
                 const prompt = `Generate a single, short, whimsical, Studio Ghibli-style name for a water spirit that looks like a ${this.species.name}. It should be unique and sound magical. Return ONLY the name, no other text.`;
+                
                 const newName = await callGemini(prompt);
-                if (newName) this.name = newName;
+                if (newName) {
+                    this.name = newName;
+                } else {
+                    this.name = FALLBACK_NAMES[Math.floor(Math.random() * FALLBACK_NAMES.length)];
+                }
             }
 
             async talk() {
@@ -541,27 +580,29 @@
                 const prompt = `Roleplay as a ${this.species.name} named ${this.name} in a magical Ghibli aquarium. Your personality is ${this.species.personality}. A human just waved at you. Respond with one very short, poetic, funny, or mystical sentence (max 10 words).`;
                 
                 const response = await callGemini(prompt);
-                this.chatText = response || "Bloop?";
+                
+                if (response) {
+                    this.chatText = response;
+                } else {
+                    const phrases = FALLBACK_PHRASES[this.species.personality] || ["Bloop?", "Hello...", "Splosh."];
+                    this.chatText = phrases[Math.floor(Math.random() * phrases.length)];
+                }
+
                 this.chatTimer = 300;
                 this.isTalking = false;
             }
 
             update(foodList) {
-                // --- Biological Decay ---
                 if (!this.isDead) {
-                    // Lose energy (starvation)
-                    this.energy -= 0.05;
-                    // Digest food (reduce fullness)
-                    this.fullness = Math.max(0, this.fullness - 0.1);
+                    this.energy -= 0.006;
+                    this.fullness = Math.max(0, this.fullness - 0.05);
 
-                    // Check for death by starvation or age
                     if (Date.now() - this.birthTime > this.lifespan || this.energy <= 0) {
                         this.isDead = true;
                         this.deathReason = this.energy <= 0 ? "Starved" : "Old Age";
                     }
                 }
 
-                // --- Dead Logic ---
                 if (this.isDead) {
                     this.vel.x *= 0.9; 
                     this.vel.y = -1.5; 
@@ -575,7 +616,6 @@
                     return 'alive';
                 }
 
-                // --- Living Logic ---
                 if (this.chatTimer > 0 && !this.isTalking) {
                     this.chatTimer--;
                     if (this.chatTimer <= 0) this.chatText = null;
@@ -612,20 +652,13 @@
 
                 this.vel.add(this.acc);
                 
-                // --- Movement Modifiers ---
-                
-                // 1. Mouse Interaction (Slow Down)
                 let dToMouse = dist(this.pos.x, this.pos.y, mousePos.x, mousePos.y);
                 let speedMod = 1;
-                if (dToMouse < 150) {
-                    speedMod = 0.3;
-                }
+                if (dToMouse < 150) speedMod = 0.3;
 
-                // 2. Starvation (Slower when hungry)
                 let energyFactor = Math.max(0.2, this.energy / this.maxEnergy);
                 speedMod *= energyFactor;
 
-                // 3. Fullness (Slower when stuffed)
                 if (this.fullness > 80) speedMod *= 0.7;
 
                 this.vel.limit(this.maxSpeed * (target ? 1.5 : 1) * speedMod);
@@ -686,7 +719,6 @@
             feed() {
                 if (this.isDead) return;
                 
-                // Check if already stuffed
                 if (this.fullness > this.maxFullness) {
                     this.sickUp();
                     return;
@@ -695,19 +727,15 @@
                 score += 15;
                 updateScore();
                 
-                // Restore Energy
                 this.energy = Math.min(this.maxEnergy, this.energy + 30);
-                // Increase Fullness
                 this.fullness += 25;
 
-                // Growth Logic
                 const maxSize = this.species.size * 2.0; 
                 if (this.size < maxSize) {
                     this.size += 0.8; 
                     this.maxSpeed = Math.max(this.species.speed * 0.5, this.maxSpeed - 0.02);
                 }
 
-                // Eating particles
                 for(let i=0; i<5; i++) {
                     particles.push({
                         x: this.pos.x, y: this.pos.y,
@@ -718,22 +746,16 @@
             }
 
             sickUp() {
-                // Create a food particle at mouth position
                 particles.push(new Food(this.pos.x, this.pos.y));
-                
-                // Reset Fullness partly (relief)
                 this.fullness = 50;
                 
-                // Visuals: Green Particles
                 for(let i=0; i<8; i++) {
                     particles.push({
                         x: this.pos.x, y: this.pos.y,
                         vx: rand(-2,2), vy: rand(-2,2),
-                        life: 1.5, color: '#88e1d5' // Sickly green
+                        life: 1.5, color: '#88e1d5'
                     });
                 }
-                
-                // Stop momentum momentarily
                 this.vel.mult(0.1);
             }
 
@@ -741,7 +763,8 @@
                 ctx.save();
                 ctx.translate(this.pos.x, this.pos.y);
 
-                if (this.chatText && !this.isDead) {
+                // Draw Chat Bubble only if fully alive and talking
+                if (this.chatText && !this.isDead && this.size > 0) { // size check for safety
                     ctx.save();
                     ctx.translate(0, -this.size * 2 - 20);
                     ctx.font = "16px 'Patrick Hand'";
@@ -772,18 +795,19 @@
                     ctx.globalAlpha = 0.6;
                     ctx.filter = "grayscale(0.8)";
                 } else if (this.fullness > 90) {
-                    // Green tint if about to be sick
                     ctx.filter = "hue-rotate(120deg) brightness(1.1)"; 
                 }
 
                 ctx.shadowColor = 'rgba(0,0,0,0.2)';
                 ctx.shadowBlur = 10;
 
+                // Body
                 ctx.fillStyle = this.species.colorBody;
                 ctx.beginPath();
                 ctx.ellipse(0, 0, this.size, this.size * 0.6, 0, 0, Math.PI * 2);
                 ctx.fill();
 
+                // Eye
                 if (this.isDead) {
                      ctx.strokeStyle = '#333';
                      ctx.lineWidth = 2;
@@ -804,6 +828,7 @@
                     ctx.fill();
                 }
 
+                // Tail
                 ctx.fillStyle = this.species.colorFin;
                 let tailWag = this.isDead ? 0 : Math.sin(this.tailAngle) * (this.size * 0.5);
                 ctx.beginPath();
@@ -817,6 +842,7 @@
                 }
                 ctx.fill();
 
+                // Fin
                 ctx.fillStyle = this.species.colorFin; 
                 ctx.globalAlpha = this.isDead ? 0.4 : 0.8;
                 ctx.beginPath();
@@ -825,6 +851,7 @@
                 ctx.quadraticCurveTo(-this.size * 0.5, this.size + finWag, 0, this.size * 0.8);
                 ctx.fill();
 
+                // Top Fin
                 if (this.species.finType !== 'simple') {
                     ctx.beginPath();
                     ctx.moveTo(0, -this.size * 0.5);
@@ -832,16 +859,15 @@
                     ctx.fill();
                 }
 
-                if (isTalkMode && !this.isDead) {
+                if (isTalkMode && !this.isDead && this.size > 0) { // Ensure size check for drawing context safety
                     ctx.rotate(-this.angle);
                     ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-                    // Updated font size to be bigger
                     ctx.font = "bold 14px 'Patrick Hand'";
                     ctx.textAlign = "center";
                     ctx.shadowColor = "rgba(0,0,0,0.8)";
                     ctx.shadowBlur = 3;
                     ctx.fillText(this.name, 0, this.size + 20);
-                    ctx.shadowBlur = 0; // reset
+                    ctx.shadowBlur = 0; 
                 }
 
                 ctx.restore();
@@ -959,19 +985,50 @@
                 const el = document.createElement('div');
                 el.className = 'fish-card';
                 el.id = `shop-item-${s.id}`;
-                el.innerHTML = `
-                    <div class="fish-preview" style="background-color: transparent">
-                        <div style="width: 100%; height: 100%; border-radius: 50%; background: ${s.colorBody}; position: relative; top: 10px;">
-                            <div style="position: absolute; right: -10px; top: 5px; width: 15px; height: 15px; background: ${s.colorFin}; clip-path: polygon(100% 50%, 0 0, 0 100%);"></div>
-                        </div>
-                    </div>
-                    <div class="fish-name">${s.name}</div>
-                    <div class="fish-cost">${s.cost} Orbs</div>
-                `;
+                
+                // Canvas for icon
+                const canvas = document.createElement('canvas');
+                canvas.width = 60;
+                canvas.height = 40;
+                canvas.className = 'fish-preview-canvas';
+                canvas.id = `preview-${s.id}`;
+                
+                el.appendChild(canvas);
+                
+                const nameEl = document.createElement('div');
+                nameEl.className = 'fish-name';
+                nameEl.innerText = s.name;
+                el.appendChild(nameEl);
+                
+                const costEl = document.createElement('div');
+                costEl.className = 'fish-cost';
+                costEl.innerText = `${s.cost} Orbs`;
+                el.appendChild(costEl);
+                
                 el.onclick = () => buyFish(s);
                 container.appendChild(el);
             });
+            
+            // Render icons
+            renderShopIcons();
             updateShopUI();
+        }
+
+        function renderShopIcons() {
+            SPECIES.forEach(s => {
+                const canvas = document.getElementById(`preview-${s.id}`);
+                const pCtx = canvas.getContext('2d');
+                
+                // Create dummy fish
+                const dummy = new Fish(s);
+                dummy.pos.x = 30;
+                dummy.pos.y = 20;
+                dummy.size = Math.min(s.size, 15); // Limit size for icon
+                dummy.angle = 0;
+                
+                pCtx.clearRect(0, 0, 60, 40);
+                dummy.draw(pCtx);
+            });
         }
 
         function buyFish(species) {
