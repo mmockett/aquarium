@@ -315,7 +315,9 @@
             'slow, wise, and sleepy': ["The river knows...", "Zzz...", "Currents shift...", "Patience...", "Drifting...", "Ancient waters...", "Rest now."],
             'majestic, ancient, and noble': ["Behold.", "The deep calls.", "Golden light.", "Respect the water.", "I watch over all.", "Grace.", "Silence."],
             'silent, hungry, and eerie': ["...", "Ah... ah...", "Gold...", "Hungry...", "Feed me...", "Lonely..."],
-            'energetic, starlike, and fast': ["Zoom!", "Twinkle!", "Shooting star!", "Catch me!", "Light!", "Speed!"]
+            'energetic, starlike, and fast': ["Zoom!", "Twinkle!", "Shooting star!", "Catch me!", "Light!", "Speed!"],
+            'aggressive, hunting, and sharp': ["Prey...", "Shadows...", "Snap!", "Watching...", "Hunger...", "Darkness..."],
+            'massive, slow, and insatiable': ["Gulp.", "Ancient hunger.", "Floating...", "Everything is food.", "Slowly...", "Grow..."]
         };
 
         // --- Gemini API Integration ---
@@ -364,6 +366,7 @@
             }
         };
 
+        // Species list ordered by ascending cost for shop display
         const SPECIES = [
             {
                 id: 'basic',
@@ -399,17 +402,6 @@
                 personality: 'playful, clicking, and mysterious'
             },
             {
-                id: 'noface',
-                name: 'No-Face Puffer',
-                cost: 600,
-                colorBody: '#1a1a1a', 
-                colorFin: '#333',
-                size: 22,
-                speed: 1.5,
-                finType: 'simple',
-                personality: 'silent, hungry, and eerie'
-            },
-            {
                 id: 'forest',
                 name: 'Mossy Carp',
                 cost: 800,
@@ -421,6 +413,18 @@
                 personality: 'slow, wise, and sleepy'
             },
             {
+                id: 'hunter',
+                name: 'Shadow Hunter',
+                cost: 1200,
+                colorBody: '#2C3E50',
+                colorFin: '#E74C3C',
+                size: 30,
+                speed: 3.8,
+                finType: 'fancy',
+                personality: 'aggressive, hunting, and sharp',
+                isPredator: true
+            },
+            {
                 id: 'sun',
                 name: 'Sky Spirit',
                 cost: 2000,
@@ -430,6 +434,18 @@
                 speed: 3.0,
                 finType: 'flowing',
                 personality: 'majestic, ancient, and noble'
+            },
+            {
+                id: 'lord',
+                name: 'River Lord',
+                cost: 5000,
+                colorBody: '#4A5568',
+                colorFin: '#2D3748',
+                size: 60,
+                speed: 1.2,
+                finType: 'flowing',
+                personality: 'massive, slow, and insatiable',
+                isPredator: true
             }
         ];
 
@@ -557,14 +573,15 @@
                 this.size = type.size;
                 
                 this.birthTime = Date.now();
-                this.lifespan = rand(15 * 60 * 1000, 25 * 60 * 1000); 
+                // Lifespan: 1 hour to 24 hours
+                this.lifespan = rand(60 * 60 * 1000, 24 * 60 * 60 * 1000); 
                 this.isDead = false;
                 
                 this.energy = 100; 
                 this.maxEnergy = 100;
 
                 // Eating slowdown
-                this.digestionSlowdown = 1.0; // Multiplier, goes to 0.5 when full
+                this.digestionSlowdown = 1.0; 
                 
                 this.tailAngle = 0;
                 this.tailSpeed = 0.2;
@@ -648,7 +665,6 @@
 
                         // Cohesion: steer towards average position
                         let cohPos = new Vector(other.pos.x, other.pos.y);
-                        // No factor mult here directly on pos, logic handled in steering
                         coh.add(cohPos);
                         cohCount++;
                     }
@@ -692,6 +708,47 @@
                 this.acc.add(coh);
             }
 
+            hunt(allFish) {
+                if (!this.species.isPredator || this.isDead) return null;
+
+                let closestPrey = null;
+                let closestDist = Infinity;
+
+                for (let prey of allFish) {
+                    // Rules for predation:
+                    // 1. Prey is not dead
+                    // 2. Prey is not self
+                    // 3. Prey is significantly smaller (0.6x size or less)
+                    // 4. Prey is not also a predator (optional, but good for hierarchy)
+                    if (prey !== this && !prey.isDead && prey.size < this.size * 0.6) {
+                        let d = dist(this.pos.x, this.pos.y, prey.pos.x, prey.pos.y);
+                        
+                        // Check for eating
+                        if (d < this.size * 0.8) {
+                            return prey; // CAUGHT!
+                        }
+
+                        // Find closest to chase
+                        if (d < 300 && d < closestDist) {
+                            closestDist = d;
+                            closestPrey = prey;
+                        }
+                    }
+                }
+
+                // Chase logic
+                if (closestPrey) {
+                    let desired = new Vector(closestPrey.pos.x - this.pos.x, closestPrey.pos.y - this.pos.y);
+                    desired.normalize();
+                    desired.mult(this.maxSpeed * 1.2); // Burst speed
+                    let steer = Vector.sub(desired, this.vel);
+                    steer.limit(this.maxForce * 1.5);
+                    this.acc.add(steer);
+                }
+                
+                return null;
+            }
+
             update(foodList, allFish) {
                 if (!this.isDead) {
                     this.energy -= 0.006;
@@ -701,9 +758,17 @@
                         this.digestionSlowdown += 0.002; // Slow recovery
                     }
 
+                    // Death Checks
                     if (Date.now() - this.birthTime > this.lifespan || this.energy <= 0) {
                         this.isDead = true;
                         this.deathReason = this.energy <= 0 ? "Starved" : "Old Age";
+                    }
+
+                    // Rare Disease Check (approx 2-5% chance over lifetime)
+                    // Very small probability per frame
+                    if (Math.random() < 0.0000005) {
+                        this.isDead = true;
+                        this.deathReason = "Sudden Illness";
                     }
                 }
 
@@ -725,11 +790,24 @@
                     if (this.chatTimer <= 0) this.chatText = null;
                 }
 
-                // 1. Find Food
+                // 1. Find Food or Hunt
                 let target = null;
                 let closestDist = Infinity;
                 let closestFood = null;
                 
+                // Hunting Logic for Predators
+                if (this.species.isPredator) {
+                    // hunt() modifies acc to chase, and returns a fish if eaten
+                    let eatenPrey = this.hunt(allFish);
+                    if (eatenPrey) {
+                        eatenPrey.isDead = true;
+                        eatenPrey.deathReason = `Eaten by ${this.name}`;
+                        // Simulate eating food
+                        this.feed();
+                    }
+                }
+
+                // Standard Food Seeking
                 for (let f of foodList) {
                     if (!f.eaten) {
                         let d = dist(this.pos.x, this.pos.y, f.pos.x, f.pos.y);
@@ -750,12 +828,10 @@
 
                 // 2. Behaviors
                 if (target) {
-                    // Hunger overrides social behavior
                     this.seek(target);
                 } else {
-                    // Socialize
                     this.flock(allFish);
-                    this.wander(); // Base movement
+                    this.wander(); 
                     this.boundaries();
                 }
 
@@ -769,13 +845,36 @@
                 let energyFactor = Math.max(0.2, this.energy / this.maxEnergy);
                 speedMod *= energyFactor;
                 
-                // Apply Digestion slowdown
                 speedMod *= this.digestionSlowdown;
 
                 this.vel.limit(this.maxSpeed * (target ? 1.5 : 1) * speedMod);
                 this.pos.add(this.vel);
-                this.acc.mult(0); // Reset acc
+                this.acc.mult(0); 
 
+                // --- Hard Constraint: Prevent Disappearing ---
+                // If fish hits edge, bounce it back and clamp position
+                let hitEdge = false;
+                if (this.pos.x < this.size) {
+                    this.pos.x = this.size;
+                    this.vel.x *= -0.8; // Bounce
+                    hitEdge = true;
+                }
+                if (this.pos.x > width - this.size) {
+                    this.pos.x = width - this.size;
+                    this.vel.x *= -0.8;
+                    hitEdge = true;
+                }
+                if (this.pos.y < this.size) {
+                    this.pos.y = this.size;
+                    this.vel.y *= -0.8;
+                    hitEdge = true;
+                }
+                if (this.pos.y > height - this.size) {
+                    this.pos.y = height - this.size;
+                    this.vel.y *= -0.8;
+                    hitEdge = true;
+                }
+                
                 // Angle smoothing
                 let desiredAngle = Math.atan2(this.vel.y, this.vel.x);
                 let diff = desiredAngle - this.angle;
@@ -839,7 +938,8 @@
                 // Food Coma: Slow down
                 this.digestionSlowdown = 0.5; 
 
-                const maxSize = this.species.size * 2.0; 
+                // Growth Limit: 3.0x size
+                const maxSize = this.species.size * 3.0; 
                 if (this.size < maxSize) {
                     this.size += 0.8; 
                     this.maxSpeed = Math.max(this.species.speed * 0.5, this.maxSpeed - 0.02);
@@ -1232,16 +1332,30 @@
                 f.draw(ctx);
             });
 
-            for (let i = fishes.length - 1; i >= 0; i--) {
-                let fish = fishes[i];
-                let status = fish.update(foodItems, fishes); // Pass all fishes for flocking
+            // Use a separate list to process removals to avoid index issues
+            let deadFish = [];
+
+            fishes.forEach(fish => {
+                let status = fish.update(foodItems, fishes); 
                 fish.draw(ctx);
                 
                 if (status === 'gone') {
-                    addToGraveyard(fish);
-                    fishes.splice(i, 1);
+                    deadFish.push(fish);
                 }
-            }
+                
+                // If died in update (e.g. starvation/disease), also check to see if we should remove visual next frame
+                // But 'gone' specifically refers to floating off screen.
+                // Fish that just died this frame (isDead=true) still need to float up.
+            });
+
+            // Remove fish that have floated off screen
+            deadFish.forEach(fish => {
+                const index = fishes.indexOf(fish);
+                if (index > -1) {
+                    addToGraveyard(fish);
+                    fishes.splice(index, 1);
+                }
+            });
 
             particles = particles.filter(p => {
                 if (p instanceof Food) return !p.eaten;
