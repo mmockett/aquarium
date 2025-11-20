@@ -239,6 +239,25 @@
             box-shadow: 0 0 15px rgba(136, 225, 213, 0.5);
         }
 
+        /* Predator Badge Style */
+        .predator-badge {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #E74C3C;
+            color: white;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            z-index: 20;
+            cursor: help;
+        }
+
         .fish-preview-canvas {
             margin-bottom: 5px;
         }
@@ -1452,6 +1471,15 @@
                 el.className = 'fish-card';
                 el.id = `shop-item-${s.id}`;
                 
+                // NEW: Predator Badge
+                if (s.isPredator) {
+                    const badge = document.createElement('div');
+                    badge.className = 'predator-badge';
+                    badge.innerHTML = '⚠️'; 
+                    badge.title = 'Aggressive Predator';
+                    el.appendChild(badge);
+                }
+
                 const canvas = document.createElement('canvas');
                 canvas.width = 60;
                 canvas.height = 40;
