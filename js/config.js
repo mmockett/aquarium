@@ -53,6 +53,11 @@ export const FALLBACK_PHRASES = {
         "Gulp.", "Ancient hunger.", "Floating...", "Everything is food.", "Slowly...", 
         "Grow...", "Endless...", "Mouth open.", "Drift to me.", "Heavy...", "Big water.", 
         "Swallow whole.", "Deep belly.", "River god.", "Mountain of flesh."
+    ],
+    'colorful and radiant': [
+        "Colors!", "Shining bright!", "I am the prism.", "Look at me glow!", "Radiant!", 
+        "Painting the water.", "Vibrant!", "Hue upon hue.", "Dazzling...", "Spectrum!", 
+        "Light dances.", "Chromatic.", "A living rainbow."
     ]
 };
 
@@ -78,6 +83,7 @@ export const SPECIES = [
     { id: 'forest', name: 'Mossy Carp', cost: 800, colorBody: '#457B9D', colorFin: '#1D3557', size: 25, speed: 1.8, finType: 'flowing', personality: 'slow, wise, and sleepy', soundPitch: 0.8 },
     { id: 'hunter', name: 'Shadow Hunter', cost: 1200, colorBody: '#2C3E50', colorFin: '#E74C3C', size: 30, speed: 3.8, finType: 'fancy', personality: 'aggressive, hunting, and sharp', isPredator: true, soundPitch: 0.6 },
     { id: 'sun', name: 'Sky Spirit', cost: 2000, colorBody: '#fff', colorFin: '#48CAE4', size: 35, speed: 3.0, finType: 'flowing', personality: 'majestic, ancient, and noble', soundPitch: 1.8 },
-    { id: 'lord', name: 'River Lord', cost: 5000, colorBody: '#4A5568', colorFin: '#2D3748', size: 60, speed: 1.2, finType: 'flowing', personality: 'massive, slow, and insatiable', isPredator: true, soundPitch: 0.4 }
+    { id: 'lord', name: 'River Lord', cost: 5000, colorBody: '#4A5568', colorFin: '#2D3748', size: 60, speed: 1.2, finType: 'flowing', personality: 'massive, slow, and insatiable', isPredator: true, soundPitch: 0.4 },
+    { id: 'rainbow', name: 'Rainbow Spirit', cost: 10000, colorBody: '#9370DB', colorFin: '#00FFFF', size: 45, speed: 5.0, finType: 'flowing', personality: 'colorful and radiant', soundPitch: 2.0 }
 ];
 

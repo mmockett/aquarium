@@ -224,6 +224,7 @@ function buyFish(species) {
     if (score >= species.cost) {
         score -= species.cost;
         UI.updateScore(score);
+        updateShopUI();
         UI.showToast("Summoning Spirit...");
         
         sound.playChime(); 
