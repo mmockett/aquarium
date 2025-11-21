@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spirit Aquarium (Optimized)</title>
+    <title>Spirit Aquarium</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap');
 
@@ -434,7 +434,37 @@
             transform: scale(1.1);
         }
 
-        /* Hidden State: Fades out specific hideable elements */
+        /* Sound Toggle Button */
+        .sound-toggle-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            pointer-events: auto;
+            z-index: 1000;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+            margin-right: 10px; 
+        }
+
+        .sound-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(1.1);
+        }
+        
+        .sound-toggle-btn.muted {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+
+        /* Hidden State */
         body.ui-hidden .hideable,
         body.ui-hidden .bottom-ui,
         body.ui-hidden .tutorial-text,
@@ -444,7 +474,6 @@
             transition: opacity 0.8s ease;
         }
 
-        /* FIX: Explicitly disable pointer events on containers that are normally 'auto' */
         body.ui-hidden .shop-container,
         body.ui-hidden .graveyard-container,
         body.ui-hidden .hud-top,
@@ -452,7 +481,6 @@
             pointer-events: none !important;
         }
 
-        /* Toggle button becomes subtle when UI is hidden */
         body.ui-hidden .ui-toggle-btn {
             opacity: 0.3;
             background: transparent;
@@ -472,7 +500,6 @@
 
     <div id="ui-layer">
         <div class="hud-top">
-            <!-- Added 'hideable' class for toggle logic -->
             <div class="left-group hideable">
                 <div class="score-container">
                     <div class="currency-icon"></div>
@@ -481,7 +508,6 @@
                 <button class="help-btn" onclick="toggleHelp()">?</button>
             </div>
             
-            <!-- New Right Group to hold buttons + toggle aligner -->
             <div class="right-group">
                 <div class="button-group hideable">
                     <button id="autoFeedBtn" class="mode-btn" onclick="toggleAutoFeed()">
@@ -491,7 +517,7 @@
                         ✨ Talk to Spirits
                     </button>
                 </div>
-                <!-- Moved Toggle Button inside flex container for perfect alignment -->
+                <button id="soundToggleBtn" class="sound-toggle-btn muted" onclick="toggleSound()" title="Toggle Sound">🎵</button>
                 <button id="uiToggleBtn" class="ui-toggle-btn" onclick="toggleUI()" title="Toggle UI">👁️</button>
             </div>
         </div>
@@ -511,22 +537,16 @@
             <div class="help-modal">
                 <span class="close-help" onclick="toggleHelp()">×</span>
                 <h2>Aquarium Guide</h2>
-                
                 <h3>🍂 Feeding & Growth</h3>
                 <p>Click to drop food. Fish eat to grow larger and earn you Spirit Orbs. Keep them well-fed (Energy > 0) or they may starve!</p>
-                
                 <h3>❤️ Reproduction</h3>
                 <p>Two well-fed adult fish of the same species may fall in love and create offspring. Keep the population under 50 to allow new births.</p>
-                
                 <h3>🦈 Predators & Prey</h3>
                 <p>Some spirits hunt others! Predators will lock onto smaller prey. Prey that have eaten recently (within 20s) can sprint to escape.</p>
-
                 <h3>⚠️ Territorial Tantrums</h3>
-                <p>If two predators get too close, they will fight! While fighting (marked by 💢), they are too distracted to hunt prey.</p>
-                
+                <p>If two predators get too close, they will fight! While fighting, they are too distracted to hunt prey.</p>
                 <h3>✨ Talk to Spirits</h3>
                 <p>Toggle "Talk" mode to click on spirits and hear their thoughts. In this mode, they slow down for you.</p>
-                
                 <h3>💀 The Circle of Life</h3>
                 <p>Spirits live for a random time (1-24 hours). When they pass, they join the Spirit Memories.</p>
             </div>
@@ -648,89 +668,176 @@
         };
 
         const SPECIES = [
-            {
-                id: 'basic',
-                name: 'River Spirit',
-                cost: 100,
-                colorBody: '#E86F51', 
-                colorFin: '#F4A261',
-                size: 15,
-                speed: 2.5,
-                finType: 'simple',
-                personality: 'curious and bubbly'
-            },
-            {
-                id: 'starbit',
-                name: 'Star Bit Guppy',
-                cost: 250,
-                colorBody: '#FFD93D', 
-                colorFin: '#FFF',
-                size: 10,
-                speed: 4.0,
-                finType: 'simple',
-                personality: 'energetic, starlike, and fast'
-            },
-            {
-                id: 'kodama',
-                name: 'Kodama Tetra',
-                cost: 350,
-                colorBody: '#F1FAEE', 
-                colorFin: '#A8DADC',
-                size: 12,
-                speed: 3.5,
-                finType: 'glow',
-                personality: 'playful, clicking, and mysterious'
-            },
-            {
-                id: 'forest',
-                name: 'Mossy Carp',
-                cost: 800,
-                colorBody: '#457B9D', 
-                colorFin: '#1D3557',
-                size: 25,
-                speed: 1.8,
-                finType: 'flowing',
-                personality: 'slow, wise, and sleepy'
-            },
-            {
-                id: 'hunter',
-                name: 'Shadow Hunter',
-                cost: 1200,
-                colorBody: '#2C3E50',
-                colorFin: '#E74C3C',
-                size: 30,
-                speed: 3.8,
-                finType: 'fancy',
-                personality: 'aggressive, hunting, and sharp',
-                isPredator: true
-            },
-            {
-                id: 'sun',
-                name: 'Sky Spirit',
-                cost: 2000,
-                colorBody: '#fff', 
-                colorFin: '#48CAE4',
-                size: 35,
-                speed: 3.0,
-                finType: 'flowing',
-                personality: 'majestic, ancient, and noble'
-            },
-            {
-                id: 'lord',
-                name: 'River Lord',
-                cost: 5000,
-                colorBody: '#4A5568',
-                colorFin: '#2D3748',
-                size: 60,
-                speed: 1.2,
-                finType: 'flowing',
-                personality: 'massive, slow, and insatiable',
-                isPredator: true
-            }
+            { id: 'basic', name: 'River Spirit', cost: 100, colorBody: '#E86F51', colorFin: '#F4A261', size: 15, speed: 2.5, finType: 'simple', personality: 'curious and bubbly', soundPitch: 1.0 },
+            { id: 'starbit', name: 'Star Bit Guppy', cost: 250, colorBody: '#FFD93D', colorFin: '#FFF', size: 10, speed: 4.0, finType: 'simple', personality: 'energetic, starlike, and fast', soundPitch: 1.5 },
+            { id: 'kodama', name: 'Kodama Tetra', cost: 350, colorBody: '#F1FAEE', colorFin: '#A8DADC', size: 12, speed: 3.5, finType: 'glow', personality: 'playful, clicking, and mysterious', soundPitch: 1.2 },
+            { id: 'forest', name: 'Mossy Carp', cost: 800, colorBody: '#457B9D', colorFin: '#1D3557', size: 25, speed: 1.8, finType: 'flowing', personality: 'slow, wise, and sleepy', soundPitch: 0.8 },
+            { id: 'hunter', name: 'Shadow Hunter', cost: 1200, colorBody: '#2C3E50', colorFin: '#E74C3C', size: 30, speed: 3.8, finType: 'fancy', personality: 'aggressive, hunting, and sharp', isPredator: true, soundPitch: 0.6 },
+            { id: 'sun', name: 'Sky Spirit', cost: 2000, colorBody: '#fff', colorFin: '#48CAE4', size: 35, speed: 3.0, finType: 'flowing', personality: 'majestic, ancient, and noble', soundPitch: 1.8 },
+            { id: 'lord', name: 'River Lord', cost: 5000, colorBody: '#4A5568', colorFin: '#2D3748', size: 60, speed: 1.2, finType: 'flowing', personality: 'massive, slow, and insatiable', isPredator: true, soundPitch: 0.4 }
         ];
 
-        // --- OPTIMIZATION: Spatial Hash Grid ---
-        // Replaces the O(N^2) distance check with a specialized O(N) grid check
+        // --- OPTIMIZED Sound Manager (Buffers + Throttling) ---
+        class SoundManager {
+            constructor() {
+                this.ctx = null;
+                this.masterGain = null;
+                this.isMuted = true;
+                
+                // Buffers
+                this.buffers = {
+                    bloop: null,
+                    chime: null,
+                    death: null,
+                    ambience: null
+                };
+                
+                this.ambienceNode = null;
+                this.lastPlayTime = 0;
+            }
+
+            init() {
+                if (this.ctx) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.0; 
+                this.masterGain.connect(this.ctx.destination);
+                
+                // Generate all sound buffers once
+                this.generateBuffers();
+                
+                this.startAmbience();
+            }
+
+            generateBuffers() {
+                const sr = this.ctx.sampleRate;
+                
+                // 1. Bloop Buffer (Sine sweep)
+                const bloopLen = 0.15;
+                const bloopBuf = this.ctx.createBuffer(1, bloopLen * sr, sr);
+                const bData = bloopBuf.getChannelData(0);
+                for(let i=0; i<bData.length; i++) {
+                    const t = i / sr;
+                    // Frequency sweep down
+                    const freq = 600 - (t * 3000); 
+                    // Envelope
+                    const env = 1 - (t / bloopLen);
+                    bData[i] = Math.sin(2 * Math.PI * freq * t) * env * 0.5;
+                }
+                this.buffers.bloop = bloopBuf;
+
+                // 2. Chime Buffer (Simple chord)
+                const chimeLen = 1.5;
+                const chimeBuf = this.ctx.createBuffer(1, chimeLen * sr, sr);
+                const cData = chimeBuf.getChannelData(0);
+                const freqs = [523.25, 659.25, 783.99, 1046.50];
+                for(let i=0; i<cData.length; i++) {
+                    let sample = 0;
+                    const t = i / sr;
+                    freqs.forEach((f, idx) => {
+                        // Staggered entry
+                        if(t > idx * 0.05) {
+                            sample += Math.sin(2 * Math.PI * f * t) * 0.1;
+                        }
+                    });
+                    // Exp decay
+                    cData[i] = sample * Math.exp(-3 * t);
+                }
+                this.buffers.chime = chimeBuf;
+
+                // 3. Ambience Buffer (Brown Noise Loop - 2 seconds)
+                const ambLen = 2.0;
+                const ambBuf = this.ctx.createBuffer(1, ambLen * sr, sr);
+                const aData = ambBuf.getChannelData(0);
+                let lastOut = 0;
+                for(let i=0; i<aData.length; i++) {
+                    const white = Math.random() * 2 - 1;
+                    aData[i] = (lastOut + (0.02 * white)) / 1.02;
+                    lastOut = aData[i];
+                    aData[i] *= 3.5; 
+                }
+                this.buffers.ambience = ambBuf;
+                
+                // 4. Death Toll (Low Rumble)
+                const dLen = 1.0;
+                const dBuf = this.ctx.createBuffer(1, dLen * sr, sr);
+                const dData = dBuf.getChannelData(0);
+                for(let i=0; i<dData.length; i++) {
+                    const t = i/sr;
+                    // Low frequency with noise
+                    dData[i] = (Math.sin(2 * Math.PI * 60 * t) + (Math.random()*0.2)) * (1 - t/dLen);
+                }
+                this.buffers.death = dBuf;
+            }
+
+            startAmbience() {
+                if(this.ambienceNode) return;
+                
+                // Lowpass Filter
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 400;
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = this.buffers.ambience;
+                noise.loop = true;
+                
+                noise.connect(filter);
+                filter.connect(this.masterGain);
+                noise.start();
+                this.ambienceNode = noise;
+            }
+
+            playSound(bufferName, rate = 1.0, volume = 1.0) {
+                if (this.isMuted || !this.ctx) return;
+
+                // Global throttle: Max 1 sound per 50ms
+                const now = Date.now();
+                if (now - this.lastPlayTime < 50) return;
+                this.lastPlayTime = now;
+
+                const buf = this.buffers[bufferName];
+                if (!buf) return;
+
+                const source = this.ctx.createBufferSource();
+                source.buffer = buf;
+                source.playbackRate.value = rate;
+
+                const gain = this.ctx.createGain();
+                gain.gain.value = volume;
+
+                source.connect(gain);
+                gain.connect(this.masterGain);
+                source.start();
+            }
+
+            playBloop(pitch = 1.0) { this.playSound('bloop', pitch, 0.3); }
+            playChime() { this.playSound('chime', 1.0, 0.4); }
+            playDeathToll() { this.playSound('death', 1.0, 0.5); }
+
+            toggle() {
+                if (!this.ctx) this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                this.isMuted = !this.isMuted;
+                const btn = document.getElementById('soundToggleBtn');
+                
+                if (!this.isMuted) {
+                    this.masterGain.gain.setTargetAtTime(0.4, this.ctx.currentTime, 0.5);
+                    btn.classList.remove('muted');
+                    btn.style.textDecoration = 'none';
+                } else {
+                    this.masterGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1);
+                    btn.classList.add('muted');
+                    btn.style.textDecoration = 'line-through';
+                }
+            }
+        }
+
+        const sound = new SoundManager();
+
+        // --- Spatial Hash Grid ---
         class SpatialHash {
             constructor(cellSize) {
                 this.cellSize = cellSize;
@@ -758,7 +865,6 @@
                 const cx = Math.floor(client.pos.x / this.cellSize);
                 const cy = Math.floor(client.pos.y / this.cellSize);
 
-                // Check 3x3 grid around client
                 for (let x = cx - 1; x <= cx + 1; x++) {
                     for (let y = cy - 1; y <= cy + 1; y++) {
                         keys.push(`${x},${y}`);
@@ -775,7 +881,6 @@
             }
         }
 
-
         // --- Game State ---
         let canvas, ctx;
         let width, height;
@@ -791,7 +896,6 @@
         let deadCount = 0;
         let idleTimer = null;
         
-        // Init Grid with cell size 150 (roughly max visual interaction range)
         const spatialGrid = new SpatialHash(150);
 
         // --- Classes ---
@@ -919,8 +1023,6 @@
                 
                 this.birthTime = Date.now();
                 
-                // BALANCE CHANGE: Predators die much faster (10-30 mins) to prevent tank wipes
-                // Normal fish live 1-24 hours
                 if (this.species.isPredator) {
                     this.lifespan = rand(10 * 60 * 1000, 30 * 60 * 1000);
                 } else {
@@ -936,8 +1038,6 @@
 
                 this.digestionSlowdown = 1.0; 
                 
-                // NEW: Hunting Cooldown (2-3 minutes)
-                // Prevents chain-killing. Fish enters "Food Coma" after eating.
                 this.huntingCooldown = this.species.isPredator ? rand(120 * 1000, 180 * 1000) : 0;
 
                 this.tailAngle = 0;
@@ -949,12 +1049,10 @@
 
                 this.romanceTarget = null; 
                 this.huntingTarget = null;
-                this.tantrumTarget = null; // NEW: Track rival predator
+                this.tantrumTarget = null; 
 
-                // Offset Logic update to avoid every fish computing complex AI on same frame
                 this.aiOffset = Math.floor(Math.random() * 3);
 
-                // MATURITY LOGIC
                 if (!isBorn) {
                     this.birthTime -= 120 * 1000;
                     this.lastReproductionTime = 0; 
@@ -993,6 +1091,7 @@
                 const spawnPos = new Vector((this.pos.x + mate.pos.x) / 2, (this.pos.y + mate.pos.y) / 2);
                 
                 showToast(`New Spirits! ${this.name} and ${mate.name} welcome ${numOffspring} babies.`);
+                sound.playChime(); 
 
                 for (let i = 0; i < numOffspring; i++) {
                     const child = new Fish(this.species, true);
@@ -1037,7 +1136,6 @@
                 let fleeVector = new Vector(0, 0);
                 const fleeRangeSq = 150**2;
                 
-                // NEW: Logic for "Tantrums"
                 let nearestRival = null;
                 let nearestRivalDistSq = Infinity;
                 const tantrumRangeSq = 200**2;
@@ -1045,7 +1143,6 @@
                 const amPredator = this.species.isPredator;
                 const amPrey = !amPredator;
 
-                // OPTIMIZATION: Use spatial grid neighbors instead of allFish
                 const nearbyFish = spatialGrid.getNearby(this);
 
                 for (let other of nearbyFish) {
@@ -1057,7 +1154,6 @@
                         if (dSq < desiredSeparationSq) {
                             let diff = Vector.sub(this.pos, other.pos);
                             diff.normalize();
-                            // Weight separation by inverse distance
                             diff.div(Math.sqrt(dSq) || 0.1); 
                             sep.add(diff);
                             sepCount++;
@@ -1075,19 +1171,15 @@
                     }
                     
                     if (amPredator) {
-                        // NEW: Hunting Cooldown Check
-                        // Only hunt if enough time has passed since last meal
                         const isHungry = (Date.now() - this.lastAteTime) > this.huntingCooldown;
 
                         if (isHungry) {
-                            // If other is predator, check for TANTRUM logic
                             if (other.species.isPredator) {
                                 if (dSq < tantrumRangeSq && dSq < nearestRivalDistSq) {
                                     nearestRival = other;
                                     nearestRivalDistSq = dSq;
                                 }
                             } 
-                            // Normal Prey Logic
                             else if (other.size < this.size * 0.6) {
                                 if (dSq < (this.size * 0.8)**2) {
                                     if (dSq < closestPreyDistSq && dSq < huntRangeSq) {
@@ -1099,10 +1191,6 @@
                                     closestPrey = other;
                                 }
                             }
-                        } else {
-                            // If not hungry, we might still check for rivals (tantrums), 
-                            // but for now let's say a full predator is too lazy to fight too.
-                            // (Optional: Move Tantrum check outside isHungry if you want fat predators to still fight)
                         }
                     }
                     
@@ -1115,31 +1203,21 @@
                     }
                 }
 
-                // TANTRUM LOGIC: Overrides hunger if a rival is near
                 if (nearestRival) {
                      this.tantrumTarget = nearestRival;
-                     // Circle the rival (Perpendicular vector)
                      let toRival = Vector.sub(nearestRival.pos, this.pos);
                      toRival.normalize();
-                     let tangent = new Vector(-toRival.y, toRival.x); // 90 deg rotation
+                     let tangent = new Vector(-toRival.y, toRival.x); 
                      tangent.mult(this.maxSpeed * 1.5);
                      
                      let steer = Vector.sub(tangent, this.vel);
                      steer.limit(this.maxForce * 2);
                      this.acc.add(steer);
 
-                     // REMOVED: Frustration emote for cleaner aesthetic
-                     // if (Math.random() < 0.05 && !this.chatText) {
-                     //    this.chatText = "💢";
-                     //    this.chatTimer = 60;
-                     // }
-
-                     // Clear hunting target so we don't chase food/prey
                      this.huntingTarget = null;
                 } else {
                      this.tantrumTarget = null;
                      
-                     // Normal behaviors
                      if (sepCount > 0) {
                         sep.div(sepCount); sep.normalize(); sep.mult(this.maxSpeed); sep.sub(this.vel); sep.limit(this.maxForce * 2.0);
                         this.acc.add(sep.mult(1.5));
@@ -1191,11 +1269,9 @@
                     this.energy -= 0.006;
                     if (this.digestionSlowdown < 1.0) this.digestionSlowdown += 0.002;
 
-                    // OPTIMIZATION: Check logic less frequently
                     if (frameCount % 60 === 0) {
-                        // BALANCE CHANGE: Predators reproduce significantly less often
-                        let mateChance = 0.02; // Base chance for normal fish
-                        if (this.species.isPredator) mateChance = 0.002; // 10x less likely for predators
+                        let mateChance = 0.02; 
+                        if (this.species.isPredator) mateChance = 0.002; 
 
                         if (Math.random() < mateChance && fishes.length <= 50) {
                              const maturityAge = 60 * 1000;
@@ -1206,7 +1282,6 @@
                                  Date.now() - this.lastReproductionTime > minCooldown && 
                                  this.energy >= 80) {
                                  
-                                 // Romance check can still use allFish but only happens rarely
                                  let potentialMate = allFish.find(other => 
                                     other !== this && 
                                     other.species.id === this.species.id && 
@@ -1230,15 +1305,12 @@
                         this.isDead = true;
                         this.deathReason = this.energy <= 0 ? "Starved" : "Old Age";
                     }
-                    // Reduced illness chance
                     if (Math.random() < 0.0000001) {
                         this.isDead = true;
                         this.deathReason = "Sudden Illness";
                     }
                 }
 
-                // Predation Logic
-                // NEW: If Fighting/Tantruming, DO NOT hunt.
                 if (this.species.isPredator && this.huntingTarget && !this.tantrumTarget) {
                     if (this.huntingTarget.isDead || Vector.distSq(this.pos, this.huntingTarget.pos) > 400**2) {
                         this.huntingTarget = null;
@@ -1247,10 +1319,10 @@
                         this.huntingTarget.deathReason = `Eaten by ${this.name}`;
                         this.huntingTarget.isEaten = true;
                         this.feed();
+                        sound.playBloop(0.5); 
                         this.huntingTarget = null;
                     }
                 } else if (this.tantrumTarget) {
-                    // Clear hunting target if we started fighting
                     this.huntingTarget = null;
                 }
 
@@ -1270,15 +1342,12 @@
                     if (this.chatTimer <= 0) this.chatText = null;
                 }
 
-                // Food Seeking (Only if not fighting)
                 let target = null;
                 let closestDistSq = Infinity;
                 let closestFood = null;
                 let searchRadSq = 300**2;
 
                 if (!this.tantrumTarget) {
-                    // Check food every frame is okay if food count is low, 
-                    // but optimizing closest search could be done via grid too if needed.
                     for (let f of foodList) {
                         if (!f.eaten) {
                             let dSq = Vector.distSq(this.pos, f.pos);
@@ -1299,7 +1368,6 @@
                     }
                 }
 
-                // Movement & Steering
                 if (target) {
                     this.seek(target);
                 } else if (this.romanceTarget) {
@@ -1308,14 +1376,11 @@
                          this.reproduce(this.romanceTarget);
                     }
                 } else {
-                    // OPTIMIZATION: Stagger AI updates
-                    // Only compute expensive flocking neighbors every 3 frames
                     if (frameCount % 3 === this.aiOffset) {
                         this.computeBehaviors(allFish);
                         this.wander(); 
                         this.boundaries();
                     }
-                    // Acc is preserved between frames so force continues to apply
                 }
 
                 this.vel.add(this.acc);
@@ -1334,7 +1399,6 @@
                 this.vel.limit(this.maxSpeed * (target ? 1.5 : 1) * speedMod);
                 this.pos.add(this.vel);
                 
-                // Reset acceleration each frame to prevent buildup
                 this.acc.mult(0); 
 
                 if (this.pos.x < this.size) { this.pos.x = this.size; this.vel.x *= -0.8; }
@@ -1449,15 +1513,6 @@
 
                 ctx.rotate(this.angle);
 
-                // OPTIMIZATION: Removed ctx.filter for dead fish.
-                // Instead, we just draw with different colors manually if dead.
-                // This saves massive GPU overhead.
-
-                // OPTIMIZATION: Removed shadowBlur. 
-                // Shadows on moving canvas entities are the #1 performance killer.
-                // ctx.shadowColor = 'rgba(0,0,0,0.2)';
-                // ctx.shadowBlur = 10;
-
                 let bodyColor = this.species.colorBody;
                 let finColor = this.species.colorFin;
 
@@ -1525,7 +1580,6 @@
                     ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
                     ctx.font = "bold 14px 'Patrick Hand'";
                     ctx.textAlign = "center";
-                    // Simple text shadow is cheaper than blur
                     ctx.fillStyle = "rgba(0,0,0,0.5)";
                     ctx.fillText(this.name, 1, this.size + 21);
                     ctx.fillStyle = "white";
@@ -1558,7 +1612,6 @@
                 mousePos.y = e.clientY - rect.top;
             });
 
-            // Initial fish are "bought" (adults)
             fishes.push(new Fish(SPECIES[0], false));
             for(let i=0; i<20; i++) particles.push(new Bubble());
 
@@ -1570,11 +1623,10 @@
                 updateScore();
             }, 3000);
 
-            // Start idle timer
             idleTimer = setTimeout(() => {
                 const el = document.getElementById('idlePrompt');
                 if(el) el.style.opacity = 1;
-            }, 60000); // 60 seconds
+            }, 60000); 
         }
 
         function resize() {
@@ -1584,7 +1636,6 @@
             canvas.height = height;
         }
 
-        // --- NEW: Toggle UI Function ---
         function toggleUI() {
             document.body.classList.toggle('ui-hidden');
         }
@@ -1596,6 +1647,7 @@
                 btn.classList.add('active');
                 btn.innerText = "🐟 Feed the Spirits";
                 document.body.style.cursor = "help";
+                sound.playBloop(1.5);
             } else {
                 btn.classList.remove('active');
                 btn.innerText = "✨ Talk to Spirits";
@@ -1606,15 +1658,16 @@
         function toggleAutoFeed() {
             isAutoFeed = !isAutoFeed;
             const btn = document.getElementById('autoFeedBtn');
+            sound.playBloop(0.8);
             
             if (isAutoFeed) {
                 btn.classList.add('active');
                 btn.innerText = "🍂 Auto Feed: ON";
                 
                 autoFeedTimer = setInterval(() => {
-                    // FIX: Check particle limit to prevent memory issues
                     if (particles.length < 200) {
                         particles.push(new Food(rand(50, width - 50), -10));
+                        if(Math.random() < 0.1) sound.playBloop(2.0); 
                     }
                 }, 2000);
             } else {
@@ -1622,6 +1675,10 @@
                 btn.innerText = "🍂 Auto Feed: OFF";
                 clearInterval(autoFeedTimer);
             }
+        }
+
+        function toggleSound() {
+            sound.toggle();
         }
 
         function toggleHelp() {
@@ -1641,7 +1698,6 @@
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            // Clear idle timer on first interaction
             if (idleTimer) {
                 clearTimeout(idleTimer);
                 idleTimer = null;
@@ -1663,12 +1719,14 @@
 
                 if (clickedFish) {
                     clickedFish.talk();
+                    sound.playChime(); 
                 } else {
                     ripples.push(new Ripple(x, y));
                 }
             } else {
                 particles.push(new Food(x, y));
                 ripples.push(new Ripple(x, y));
+                sound.playBloop(rand(0.8, 1.2)); 
             }
         }
 
@@ -1677,6 +1735,8 @@
             const div = document.createElement('div');
             div.className = 'tombstone';
             
+            sound.playDeathToll();
+
             const mins = ((Date.now() - fish.birthTime) / 60000).toFixed(1);
             const reason = fish.deathReason || "passed away";
 
@@ -1686,7 +1746,6 @@
             `;
             list.insertBefore(div, list.children[1]); 
             
-            // FIX: Cap Graveyard size to prevent DOM lag
             if (list.children.length > 31) {
                 list.removeChild(list.lastChild);
             }
@@ -1704,7 +1763,6 @@
                 el.className = 'fish-card';
                 el.id = `shop-item-${s.id}`;
                 
-                // NEW: Predator Badge
                 if (s.isPredator) {
                     const badge = document.createElement('div');
                     badge.className = 'predator-badge';
@@ -1761,6 +1819,8 @@
                 updateScore();
                 showToast("Summoning Spirit...");
                 
+                sound.playChime(); 
+
                 const f = new Fish(species, false);
                 f.pos.x = width / 2;
                 f.pos.y = height / 2;
@@ -1859,7 +1919,6 @@
             let dt = (now - lastTime) / 1000;
             lastTime = now;
 
-            // OPTIMIZATION: Clear grid once per frame
             spatialGrid.clear();
             for(let f of fishes) {
                 if(!f.isDead) spatialGrid.add(f);
@@ -1870,7 +1929,6 @@
 
             let foodItems = particles.filter(p => p instanceof Food);
             
-            // OPTIMIZATION: Reverse loops for simpler removal logic
             for (let i = ripples.length - 1; i >= 0; i--) {
                 let r = ripples[i];
                 r.update();
@@ -1887,7 +1945,6 @@
             let eatenFish = []; 
 
             fishes.forEach(fish => {
-                // Pass frameCount for logic throttling
                 let status = fish.update(foodItems, fishes, frameCount); 
                 fish.draw(ctx);
                 
@@ -1924,18 +1981,16 @@
                 }
             });
             
-            // Check for Game Over
             if (deadFish.length > 0 || eatenFish.length > 0) {
                 checkGameOver();
             }
 
-            // Optimized Particle Loop (Backwards)
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
                 
                 if (p instanceof Food) {
                     if (p.eaten) {
-                        particles.splice(i, 1); // Splice is okay for small food counts
+                        particles.splice(i, 1); 
                     }
                     continue;
                 }
@@ -1952,8 +2007,6 @@
                     p.life -= 0.05;
                     
                     if (p.life <= 0) {
-                        // OPTIMIZATION: Swap and pop is faster than splice for large arrays
-                        // But order doesn't matter here, so it works perfect.
                         particles[i] = particles[particles.length - 1];
                         particles.pop();
                     } else {
