@@ -43,7 +43,7 @@
             pointer-events: auto;
         }
 
-        .left-group {
+        .left-group, .right-group {
             display: flex;
             align-items: center;
             gap: 15px;
@@ -410,6 +410,53 @@
             to { opacity: 0; }
         }
 
+        /* --- UI Toggle Button --- */
+        .ui-toggle-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            pointer-events: auto;
+            z-index: 1000;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .ui-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(1.1);
+        }
+
+        /* Hidden State: Fades out specific hideable elements */
+        body.ui-hidden .hideable,
+        body.ui-hidden .bottom-ui,
+        body.ui-hidden .tutorial-text,
+        body.ui-hidden #idlePrompt,
+        body.ui-hidden #toast {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transition: opacity 0.8s ease;
+        }
+
+        /* Toggle button becomes subtle when UI is hidden */
+        body.ui-hidden .ui-toggle-btn {
+            opacity: 0.3;
+            background: transparent;
+            border-color: transparent;
+        }
+        
+        body.ui-hidden .ui-toggle-btn:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
     </style>
 </head>
 <body>
@@ -418,7 +465,8 @@
 
     <div id="ui-layer">
         <div class="hud-top">
-            <div class="left-group">
+            <!-- Added 'hideable' class for toggle logic -->
+            <div class="left-group hideable">
                 <div class="score-container">
                     <div class="currency-icon"></div>
                     <span id="scoreDisplay">0</span>
@@ -426,13 +474,18 @@
                 <button class="help-btn" onclick="toggleHelp()">?</button>
             </div>
             
-            <div class="button-group">
-                <button id="autoFeedBtn" class="mode-btn" onclick="toggleAutoFeed()">
-                    🍂 Auto Feed: OFF
-                </button>
-                <button id="talkBtn" class="mode-btn" onclick="toggleTalkMode()">
-                    ✨ Talk to Spirits
-                </button>
+            <!-- New Right Group to hold buttons + toggle aligner -->
+            <div class="right-group">
+                <div class="button-group hideable">
+                    <button id="autoFeedBtn" class="mode-btn" onclick="toggleAutoFeed()">
+                        🍂 Auto Feed: OFF
+                    </button>
+                    <button id="talkBtn" class="mode-btn" onclick="toggleTalkMode()">
+                        ✨ Talk to Spirits
+                    </button>
+                </div>
+                <!-- Moved Toggle Button inside flex container for perfect alignment -->
+                <button id="uiToggleBtn" class="ui-toggle-btn" onclick="toggleUI()" title="Toggle UI">👁️</button>
             </div>
         </div>
         
@@ -1449,6 +1502,11 @@
             canvas.height = height;
         }
 
+        // --- NEW: Toggle UI Function ---
+        function toggleUI() {
+            document.body.classList.toggle('ui-hidden');
+        }
+
         function toggleTalkMode() {
             isTalkMode = !isTalkMode;
             const btn = document.getElementById('talkBtn');
@@ -1472,7 +1530,7 @@
                 btn.innerText = "🍂 Auto Feed: ON";
                 
                 autoFeedTimer = setInterval(() => {
-                    // FIX: Check particle limit before adding auto-food to prevent buildup
+                    // FIX: Check particle limit to prevent memory issues
                     if (particles.length < 200) {
                         particles.push(new Food(rand(50, width - 50), -10));
                     }
@@ -1546,8 +1604,7 @@
             `;
             list.insertBefore(div, list.children[1]); 
             
-            // FIX: Cap the DOM size to prevent long-term lag
-            // Keep Title + 30 entries max
+            // FIX: Cap Graveyard size to prevent DOM lag
             if (list.children.length > 31) {
                 list.removeChild(list.lastChild);
             }
