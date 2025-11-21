@@ -512,6 +512,13 @@ export class Fish {
             ctx.globalAlpha = 0.6;
             bodyColor = '#555'; // Manual grayscale
             finColor = '#333';
+        } else if (this.species.id === 'rainbow') {
+            const time = Date.now() * 0.002;
+            const grad = ctx.createLinearGradient(-this.size, 0, this.size, 0);
+            grad.addColorStop(0, `hsl(${(time * 50) % 360}, 100%, 50%)`);
+            grad.addColorStop(1, `hsl(${(time * 50 + 180) % 360}, 100%, 50%)`);
+            bodyColor = grad;
+            finColor = `hsl(${(time * 50 + 90) % 360}, 100%, 70%)`;
         }
 
         ctx.fillStyle = bodyColor;
