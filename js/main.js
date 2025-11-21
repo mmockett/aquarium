@@ -397,7 +397,7 @@ function loop() {
 
     fishes.forEach(fish => {
         let status = fish.update(world, frameCount); 
-        fish.draw(ctx, isTalkMode);
+        fish.draw(ctx, isTalkMode, mousePos);
         
         if (status === 'gone') {
             deadFish.push(fish);

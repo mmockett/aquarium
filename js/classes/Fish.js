@@ -54,6 +54,8 @@ export class Fish {
             this.lastReproductionTime = Date.now(); 
         }
 
+        this.childrenCount = 0; // Track number of offspring
+
         this.generateName();
     }
 
@@ -110,6 +112,9 @@ export class Fish {
         this.lastReproductionTime = Date.now() + cooldown;
         mate.lastReproductionTime = Date.now() + cooldown;
         
+        this.childrenCount += numOffspring;
+        mate.childrenCount += numOffspring;
+
         this.romanceTarget = null;
         mate.romanceTarget = null;
     }
@@ -483,11 +488,20 @@ export class Fish {
         }
     }
 
-    draw(ctx, isTalkMode) {
+    draw(ctx, isTalkMode, mousePos) {
         if (this.isDead && this.isEaten) return;
 
         ctx.save();
         ctx.translate(this.pos.x, this.pos.y);
+
+        // Calculate if hovered
+        let isHovered = false;
+        if (isTalkMode && mousePos) {
+            const dSq = distSq(this.pos.x, this.pos.y, mousePos.x, mousePos.y);
+            if (dSq < (this.size + 20)**2) {
+                isHovered = true;
+            }
+        }
 
         if (this.chatText && !this.isDead && this.size > 0) {
             ctx.save();
@@ -509,6 +523,67 @@ export class Fish {
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText(this.chatText, 0, 0);
+            ctx.restore();
+        }
+
+        // Draw detailed stats on hover in Talk Mode
+        if (isHovered && !this.isDead && this.size > 0) {
+            ctx.save();
+            // Position below the name
+            ctx.translate(0, this.size + 40);
+            
+            // Hunger Status
+            let hungerStatus = "Full";
+            let hungerColor = "#4ADE80"; // Green
+            if (this.energy < 30) {
+                hungerStatus = "Starving";
+                hungerColor = "#EF4444"; // Red
+            } else if (this.energy < 70) {
+                hungerStatus = "Hungry";
+                hungerColor = "#FCD34D"; // Yellow
+            }
+
+            // Parent Status
+            const parentStatus = this.childrenCount > 0 ? "Parent" : "";
+
+            // Draw Background for stats
+            const statsText = `${hungerStatus}${parentStatus ? ' • ' + parentStatus : ''}`;
+            ctx.font = "bold 12px 'Patrick Hand'";
+            const metrics = ctx.measureText(statsText);
+            const bgW = metrics.width + 16;
+            const bgH = 20;
+
+            ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+            ctx.beginPath();
+            ctx.roundRect(-bgW/2, -bgH/2, bgW, bgH, 10);
+            ctx.fill();
+
+            // Draw Text
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            
+            if (parentStatus) {
+                const fullWidth = metrics.width;
+                const startX = -fullWidth / 2;
+                
+                ctx.textAlign = "left";
+                ctx.fillStyle = hungerColor;
+                ctx.fillText(hungerStatus, startX, 0);
+                
+                const hungerWidth = ctx.measureText(hungerStatus).width;
+                
+                ctx.fillStyle = "#fff";
+                ctx.fillText(" • ", startX + hungerWidth, 0);
+                
+                const separatorWidth = ctx.measureText(" • ").width;
+                
+                ctx.fillStyle = "#60A5FA";
+                ctx.fillText(parentStatus, startX + hungerWidth + separatorWidth, 0);
+            } else {
+                ctx.fillStyle = hungerColor;
+                ctx.fillText(hungerStatus, 0, 0);
+            }
+
             ctx.restore();
         }
 
