@@ -28,6 +28,7 @@ export class Fish {
         this.energy = 100; 
         this.maxEnergy = 100;
         this.lastAteTime = 0; 
+        this.fullCooldown = 0; // Cooldown timer in ms
 
         this.digestionSlowdown = 1.0; 
         
@@ -261,6 +262,11 @@ export class Fish {
         if (!this.isDead) {
             this.energy -= 0.006;
             if (this.digestionSlowdown < 1.0) this.digestionSlowdown += 0.002;
+            
+            // Decrement full cooldown
+            if (this.fullCooldown > 0) {
+                this.fullCooldown -= 16.6; // Approx 60fps frame time
+            }
 
             if (frameCount % 60 === 0) {
                 let mateChance = 0.02; 
@@ -340,7 +346,7 @@ export class Fish {
         let closestFood = null;
         let searchRadSq = 300**2;
 
-        if (!this.tantrumTarget) {
+        if (!this.tantrumTarget && this.fullCooldown <= 0) {
             for (let f of world.foodList) {
                 if (!f.eaten) {
                     let dSq = Vector.distSq(this.pos, f.pos);
@@ -456,6 +462,9 @@ export class Fish {
         this.energy = Math.min(this.maxEnergy, this.energy + 30);
         this.digestionSlowdown = 0.5; 
         this.lastAteTime = Date.now(); 
+        
+        // Set a random cooldown between 5 and 30 seconds
+        this.fullCooldown = rand(5000, 30000);
 
         const maxSize = this.species.size * 3.0; 
         if (this.size < maxSize) {
