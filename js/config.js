@@ -10,7 +10,7 @@ export const FALLBACK_NAMES = [
     "Jiro", "Nahoko", "Caproni", "Castorp", "Honjo", "Kayo",
     "Fujimoto", "Granmamare", "Lisa", "Koichi", "Toki", "Yoshie", "Noriko", "Kumiko", "Karen",
     "Tombo", "Osono", "Fukuo", "Ursula", "Ket", "Maki", "Madame", "Barsa",
-    "Dola", "Charles", "Louis", "Henri", "Motro", "Okami", "Muska", "Uncle Pom"
+    "Dola", "Charles", "Louis", "Henri", "Motro", "Okami", "Muska", "Uncle Pom", "Kelly", "Mina"
 ];
 
 export const FALLBACK_PHRASES = {
