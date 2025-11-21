@@ -160,6 +160,8 @@ function handleInput(e) {
     }
 }
 
+let unlockedSpecies = new Set(['basic']); // Track unlocked species IDs
+
 function initShop() {
     const container = document.getElementById('shopContainer');
     container.innerHTML = '';
@@ -169,26 +171,42 @@ function initShop() {
         el.className = 'fish-card';
         el.id = `shop-item-${s.id}`;
         
-        if (s.isPredator) {
-            const badge = document.createElement('div');
-            badge.className = 'predator-badge';
-            badge.innerHTML = '⚠️'; 
-            badge.title = 'Aggressive Predator';
-            el.appendChild(badge);
-        }
+        // If unlocked, show full details
+        if (unlockedSpecies.has(s.id)) {
+            if (s.isPredator) {
+                const badge = document.createElement('div');
+                badge.className = 'predator-badge';
+                badge.innerHTML = '⚠️'; 
+                badge.title = 'Aggressive Predator';
+                el.appendChild(badge);
+            }
 
-        const canvas = document.createElement('canvas');
-        canvas.width = 60;
-        canvas.height = 40;
-        canvas.className = 'fish-preview-canvas';
-        canvas.id = `preview-${s.id}`;
-        
-        el.appendChild(canvas);
-        
-        const nameEl = document.createElement('div');
-        nameEl.className = 'fish-name';
-        nameEl.innerText = s.name;
-        el.appendChild(nameEl);
+            const canvas = document.createElement('canvas');
+            canvas.width = 60;
+            canvas.height = 40;
+            canvas.className = 'fish-preview-canvas';
+            canvas.id = `preview-${s.id}`;
+            
+            el.appendChild(canvas);
+            
+            const nameEl = document.createElement('div');
+            nameEl.className = 'fish-name';
+            nameEl.innerText = s.name;
+            el.appendChild(nameEl);
+        } else {
+            // Locked / Mysterious State
+            const mysteryIcon = document.createElement('div');
+            mysteryIcon.style.fontSize = '30px';
+            mysteryIcon.style.marginBottom = '10px';
+            mysteryIcon.style.opacity = '0.5';
+            mysteryIcon.innerText = '?';
+            el.appendChild(mysteryIcon);
+
+            const nameEl = document.createElement('div');
+            nameEl.className = 'fish-name';
+            nameEl.innerText = "Unknown";
+            el.appendChild(nameEl);
+        }
         
         const costEl = document.createElement('div');
         costEl.className = 'fish-cost';
@@ -205,24 +223,37 @@ function initShop() {
 
 function renderShopIcons() {
     SPECIES.forEach(s => {
-        const canvas = document.getElementById(`preview-${s.id}`);
-        const pCtx = canvas.getContext('2d');
-        
-        // Create a dummy fish just for drawing
-        const dummy = new Fish(s, false, 100, 100);
-        dummy.pos.x = 30;
-        dummy.pos.y = 20;
-        dummy.size = Math.min(s.size, 15); 
-        dummy.angle = 0;
-        
-        pCtx.clearRect(0, 0, 60, 40);
-        dummy.draw(pCtx, false);
+        // Only render preview if unlocked
+        if (unlockedSpecies.has(s.id)) {
+            const canvas = document.getElementById(`preview-${s.id}`);
+            if (!canvas) return; 
+            
+            const pCtx = canvas.getContext('2d');
+            
+            // Create a dummy fish just for drawing
+            const dummy = new Fish(s, false, 100, 100);
+            dummy.pos.x = 30;
+            dummy.pos.y = 20;
+            dummy.size = Math.min(s.size, 15); 
+            dummy.angle = 0;
+            
+            pCtx.clearRect(0, 0, 60, 40);
+            dummy.draw(pCtx, false);
+        }
     });
 }
 
 function buyFish(species) {
     if (score >= species.cost) {
         score -= species.cost;
+        
+        // Unlock the species if it's the first time
+        if (!unlockedSpecies.has(species.id)) {
+            unlockedSpecies.add(species.id);
+            // Re-render shop to show the revealed fish
+            initShop();
+        }
+
         UI.updateScore(score);
         updateShopUI();
         UI.showToast("Summoning Spirit...");
