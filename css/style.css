@@ -462,7 +462,8 @@ body.ui-hidden .hideable,
 body.ui-hidden .bottom-ui,
 body.ui-hidden .tutorial-text,
 body.ui-hidden #idlePrompt,
-body.ui-hidden #toast {
+body.ui-hidden #toast,
+body.ui-hidden .sound-toggle-btn {
     opacity: 0 !important;
     transition: opacity 0.8s ease;
 }
@@ -483,5 +484,21 @@ body.ui-hidden .ui-toggle-btn {
 body.ui-hidden .ui-toggle-btn:hover {
     opacity: 1;
     background: rgba(255, 255, 255, 0.2);
+}
+
+@media (max-width: 660px) {
+    .mode-btn {
+        font-size: 0;
+        padding: 10px;
+        width: 44px;
+        height: 44px;
+        justify-content: center;
+        border-radius: 50%;
+    }
+    
+    .mode-btn::before {
+        font-size: 20px;
+        content: attr(data-icon);
+    }
 }
 
