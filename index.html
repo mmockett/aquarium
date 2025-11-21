@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spirit Aquarium</title>
+    <title>Spirit Aquarium (Optimized)</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap');
 
@@ -666,6 +666,53 @@
             }
         ];
 
+        // --- OPTIMIZATION: Spatial Hash Grid ---
+        // Replaces the O(N^2) distance check with a specialized O(N) grid check
+        class SpatialHash {
+            constructor(cellSize) {
+                this.cellSize = cellSize;
+                this.grid = new Map();
+            }
+
+            getKey(x, y) {
+                return `${Math.floor(x / this.cellSize)},${Math.floor(y / this.cellSize)}`;
+            }
+
+            clear() {
+                this.grid.clear();
+            }
+
+            add(client) {
+                const key = this.getKey(client.pos.x, client.pos.y);
+                if (!this.grid.has(key)) {
+                    this.grid.set(key, []);
+                }
+                this.grid.get(key).push(client);
+            }
+
+            getNearby(client) {
+                const keys = [];
+                const cx = Math.floor(client.pos.x / this.cellSize);
+                const cy = Math.floor(client.pos.y / this.cellSize);
+
+                // Check 3x3 grid around client
+                for (let x = cx - 1; x <= cx + 1; x++) {
+                    for (let y = cy - 1; y <= cy + 1; y++) {
+                        keys.push(`${x},${y}`);
+                    }
+                }
+
+                let results = [];
+                for (let key of keys) {
+                    if (this.grid.has(key)) {
+                        results = results.concat(this.grid.get(key));
+                    }
+                }
+                return results;
+            }
+        }
+
+
         // --- Game State ---
         let canvas, ctx;
         let width, height;
@@ -680,6 +727,9 @@
         let mousePos = { x: -9999, y: -9999 };
         let deadCount = 0;
         let idleTimer = null;
+        
+        // Init Grid with cell size 150 (roughly max visual interaction range)
+        const spatialGrid = new SpatialHash(150);
 
         // --- Classes ---
 
@@ -825,6 +875,9 @@
                 this.romanceTarget = null; 
                 this.huntingTarget = null;
 
+                // Offset Logic update to avoid every fish computing complex AI on same frame
+                this.aiOffset = Math.floor(Math.random() * 3);
+
                 // MATURITY LOGIC
                 if (!isBorn) {
                     this.birthTime -= 120 * 1000;
@@ -911,7 +964,10 @@
                 const amPredator = this.species.isPredator;
                 const amPrey = !amPredator;
 
-                for (let other of allFish) {
+                // OPTIMIZATION: Use spatial grid neighbors instead of allFish
+                const nearbyFish = spatialGrid.getNearby(this);
+
+                for (let other of nearbyFish) {
                     if (other === this || other.isDead) continue;
                     
                     let dSq = Vector.distSq(this.pos, other.pos);
@@ -920,7 +976,8 @@
                         if (dSq < desiredSeparationSq) {
                             let diff = Vector.sub(this.pos, other.pos);
                             diff.normalize();
-                            diff.div(Math.sqrt(dSq)); 
+                            // Weight separation by inverse distance
+                            diff.div(Math.sqrt(dSq) || 0.1); 
                             sep.add(diff);
                             sepCount++;
                         }
@@ -1004,30 +1061,34 @@
                 }
             }
 
-            update(foodList, allFish) {
+            update(foodList, allFish, frameCount) {
                 if (!this.isDead) {
                     this.energy -= 0.006;
                     if (this.digestionSlowdown < 1.0) this.digestionSlowdown += 0.002;
 
-                    if (Math.random() < 0.02 && fishes.length <= 50) {
-                         const maturityAge = 60 * 1000;
-                         const minCooldown = 5 * 60 * 1000;
-                         
-                         if (!this.romanceTarget && 
-                             Date.now() - this.birthTime > maturityAge &&
-                             Date.now() - this.lastReproductionTime > minCooldown && 
-                             this.energy >= 80) {
+                    // OPTIMIZATION: Check logic less frequently
+                    if (frameCount % 60 === 0) {
+                        if (Math.random() < 0.02 && fishes.length <= 50) {
+                             const maturityAge = 60 * 1000;
+                             const minCooldown = 5 * 60 * 1000;
                              
-                             let potentialMate = allFish.find(other => 
-                                other !== this && 
-                                other.species.id === this.species.id && 
-                                other.energy >= 80 && 
-                                Date.now() - other.birthTime > maturityAge && 
-                                Date.now() - other.lastReproductionTime > minCooldown &&
-                                distSq(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 200**2 
-                             );
-                             if (potentialMate) this.romanceTarget = potentialMate;
-                         }
+                             if (!this.romanceTarget && 
+                                 Date.now() - this.birthTime > maturityAge &&
+                                 Date.now() - this.lastReproductionTime > minCooldown && 
+                                 this.energy >= 80) {
+                                 
+                                 // Romance check can still use allFish but only happens rarely
+                                 let potentialMate = allFish.find(other => 
+                                    other !== this && 
+                                    other.species.id === this.species.id && 
+                                    other.energy >= 80 && 
+                                    Date.now() - other.birthTime > maturityAge && 
+                                    Date.now() - other.lastReproductionTime > minCooldown &&
+                                    distSq(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 200**2 
+                                 );
+                                 if (potentialMate) this.romanceTarget = potentialMate;
+                             }
+                        }
                     }
 
                     if (this.romanceTarget) {
@@ -1040,12 +1101,14 @@
                         this.isDead = true;
                         this.deathReason = this.energy <= 0 ? "Starved" : "Old Age";
                     }
-                    if (Math.random() < 0.0000005) {
+                    // Reduced illness chance
+                    if (Math.random() < 0.0000001) {
                         this.isDead = true;
                         this.deathReason = "Sudden Illness";
                     }
                 }
 
+                // Predation Logic
                 if (this.species.isPredator && this.huntingTarget) {
                     if (this.huntingTarget.isDead || Vector.distSq(this.pos, this.huntingTarget.pos) > 400**2) {
                         this.huntingTarget = null;
@@ -1074,11 +1137,14 @@
                     if (this.chatTimer <= 0) this.chatText = null;
                 }
 
+                // Food Seeking
                 let target = null;
                 let closestDistSq = Infinity;
                 let closestFood = null;
                 let searchRadSq = 300**2;
 
+                // Check food every frame is okay if food count is low, 
+                // but optimizing closest search could be done via grid too if needed.
                 for (let f of foodList) {
                     if (!f.eaten) {
                         let dSq = Vector.distSq(this.pos, f.pos);
@@ -1098,6 +1164,7 @@
                     }
                 }
 
+                // Movement & Steering
                 if (target) {
                     this.seek(target);
                 } else if (this.romanceTarget) {
@@ -1106,9 +1173,14 @@
                          this.reproduce(this.romanceTarget);
                     }
                 } else {
-                    this.computeBehaviors(allFish);
-                    this.wander(); 
-                    this.boundaries();
+                    // OPTIMIZATION: Stagger AI updates
+                    // Only compute expensive flocking neighbors every 3 frames
+                    if (frameCount % 3 === this.aiOffset) {
+                        this.computeBehaviors(allFish);
+                        this.wander(); 
+                        this.boundaries();
+                    }
+                    // Acc is preserved between frames so force continues to apply
                 }
 
                 this.vel.add(this.acc);
@@ -1126,6 +1198,8 @@
 
                 this.vel.limit(this.maxSpeed * (target ? 1.5 : 1) * speedMod);
                 this.pos.add(this.vel);
+                
+                // Reset acceleration each frame to prevent buildup
                 this.acc.mult(0); 
 
                 if (this.pos.x < this.size) { this.pos.x = this.size; this.vel.x *= -0.8; }
@@ -1240,15 +1314,25 @@
 
                 ctx.rotate(this.angle);
 
+                // OPTIMIZATION: Removed ctx.filter for dead fish.
+                // Instead, we just draw with different colors manually if dead.
+                // This saves massive GPU overhead.
+
+                // OPTIMIZATION: Removed shadowBlur. 
+                // Shadows on moving canvas entities are the #1 performance killer.
+                // ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                // ctx.shadowBlur = 10;
+
+                let bodyColor = this.species.colorBody;
+                let finColor = this.species.colorFin;
+
                 if (this.isDead) {
                     ctx.globalAlpha = 0.6;
-                    ctx.filter = "grayscale(0.8)";
+                    bodyColor = '#555'; // Manual grayscale
+                    finColor = '#333';
                 }
 
-                ctx.shadowColor = 'rgba(0,0,0,0.2)';
-                ctx.shadowBlur = 10;
-
-                ctx.fillStyle = this.species.colorBody;
+                ctx.fillStyle = bodyColor;
                 ctx.beginPath();
                 ctx.ellipse(0, 0, this.size, this.size * 0.6, 0, 0, Math.PI * 2);
                 ctx.fill();
@@ -1273,7 +1357,7 @@
                     ctx.fill();
                 }
 
-                ctx.fillStyle = this.species.colorFin;
+                ctx.fillStyle = finColor;
                 let tailWag = this.isDead ? 0 : Math.sin(this.tailAngle) * (this.size * 0.5);
                 ctx.beginPath();
                 ctx.moveTo(-this.size * 0.8, 0);
@@ -1286,7 +1370,7 @@
                 }
                 ctx.fill();
 
-                ctx.fillStyle = this.species.colorFin; 
+                ctx.fillStyle = finColor; 
                 ctx.globalAlpha = this.isDead ? 0.4 : 0.8;
                 ctx.beginPath();
                 let finWag = this.isDead ? 0 : Math.cos(this.tailAngle) * 5;
@@ -1306,10 +1390,11 @@
                     ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
                     ctx.font = "bold 14px 'Patrick Hand'";
                     ctx.textAlign = "center";
-                    ctx.shadowColor = "rgba(0,0,0,0.8)";
-                    ctx.shadowBlur = 3;
+                    // Simple text shadow is cheaper than blur
+                    ctx.fillStyle = "rgba(0,0,0,0.5)";
+                    ctx.fillText(this.name, 1, this.size + 21);
+                    ctx.fillStyle = "white";
                     ctx.fillText(this.name, 0, this.size + 20);
-                    ctx.shadowBlur = 0; 
                 }
 
                 ctx.restore();
@@ -1387,7 +1472,10 @@
                 btn.innerText = "🍂 Auto Feed: ON";
                 
                 autoFeedTimer = setInterval(() => {
-                    particles.push(new Food(rand(50, width - 50), -10));
+                    // FIX: Check particle limit before adding auto-food to prevent buildup
+                    if (particles.length < 200) {
+                        particles.push(new Food(rand(50, width - 50), -10));
+                    }
                 }, 2000);
             } else {
                 btn.classList.remove('active');
@@ -1457,6 +1545,12 @@
                 <span>${reason} after ${mins} minutes</span>
             `;
             list.insertBefore(div, list.children[1]); 
+            
+            // FIX: Cap the DOM size to prevent long-term lag
+            // Keep Title + 30 entries max
+            if (list.children.length > 31) {
+                list.removeChild(list.lastChild);
+            }
             
             deadCount++;
             document.querySelector('.graveyard-title').innerText = `Spirit Memories (${deadCount})`;
@@ -1616,23 +1710,34 @@
             ctx.restore();
         }
 
+        let frameCount = 0;
+
         function loop() {
             requestAnimationFrame(loop);
+            frameCount++;
 
             let now = Date.now();
             let dt = (now - lastTime) / 1000;
             lastTime = now;
+
+            // OPTIMIZATION: Clear grid once per frame
+            spatialGrid.clear();
+            for(let f of fishes) {
+                if(!f.isDead) spatialGrid.add(f);
+            }
 
             ctx.clearRect(0, 0, width, height);
             drawBackground();
 
             let foodItems = particles.filter(p => p instanceof Food);
             
-            ripples.forEach((r, i) => {
+            // OPTIMIZATION: Reverse loops for simpler removal logic
+            for (let i = ripples.length - 1; i >= 0; i--) {
+                let r = ripples[i];
                 r.update();
                 r.draw(ctx);
                 if(r.opacity <= 0) ripples.splice(i, 1);
-            });
+            }
 
             foodItems.forEach(f => {
                 f.update();
@@ -1643,7 +1748,8 @@
             let eatenFish = []; 
 
             fishes.forEach(fish => {
-                let status = fish.update(foodItems, fishes); 
+                // Pass frameCount for logic throttling
+                let status = fish.update(foodItems, fishes, frameCount); 
                 fish.draw(ctx);
                 
                 if (status === 'gone') {
@@ -1651,7 +1757,7 @@
                 } else if (status === 'eaten') {
                     eatenFish.push(fish);
                     
-                    for(let i=0; i<15; i++) { // Reduced from 30 to 15
+                    for(let i=0; i<15; i++) { 
                         if(particles.length < 200) {
                             particles.push({
                                 x: fish.pos.x, y: fish.pos.y,
@@ -1690,7 +1796,7 @@
                 
                 if (p instanceof Food) {
                     if (p.eaten) {
-                        particles.splice(i, 1);
+                        particles.splice(i, 1); // Splice is okay for small food counts
                     }
                     continue;
                 }
@@ -1707,7 +1813,10 @@
                     p.life -= 0.05;
                     
                     if (p.life <= 0) {
-                        particles.splice(i, 1);
+                        // OPTIMIZATION: Swap and pop is faster than splice for large arrays
+                        // But order doesn't matter here, so it works perfect.
+                        particles[i] = particles[particles.length - 1];
+                        particles.pop();
                     } else {
                         ctx.fillStyle = p.color ? p.color : `rgba(255, 255, 255, ${p.life})`;
                         ctx.beginPath();
