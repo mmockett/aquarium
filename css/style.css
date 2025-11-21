@@ -1,0 +1,487 @@
+@import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap');
+
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #2b3a42;
+    font-family: 'Patrick Hand', cursive;
+}
+
+#gameCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.hud-top {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: auto;
+}
+
+.left-group, .right-group {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.score-container {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(5px);
+    padding: 10px 25px;
+    border-radius: 50px;
+    color: #fff;
+    font-size: 24px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border: 1px solid rgba(255,255,255,0.3);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.help-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    font-family: 'Patrick Hand', cursive;
+    font-size: 24px;
+    color: #2b3a42;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.help-btn:hover {
+    transform: scale(1.1);
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+}
+
+.mode-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-family: 'Patrick Hand', cursive;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mode-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+.mode-btn.active {
+    background: #a4dddb;
+    color: #16252B;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.currency-icon {
+    width: 20px;
+    height: 20px;
+    background: radial-gradient(circle at 30% 30%, #fff, #a4dddb);
+    border-radius: 50%;
+    box-shadow: 0 0 10px #a4dddb;
+}
+
+.bottom-ui {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+}
+
+.shop-container {
+    pointer-events: auto;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    padding: 20px;
+    display: flex;
+    gap: 15px;
+    overflow-x: auto;
+    align-items: flex-end;
+    padding-bottom: 30px;
+    padding-right: 280px; 
+    scrollbar-width: none;
+}
+
+.shop-container::-webkit-scrollbar {
+    display: none;
+}
+
+.graveyard-container {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 220px;
+    max-height: 200px; 
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    border-radius: 12px;
+    padding: 15px;
+    color: #ddd;
+    pointer-events: auto;
+    overflow-y: auto;
+    border: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.graveyard-container::-webkit-scrollbar {
+    width: 6px;
+}
+.graveyard-container::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.1);
+}
+.graveyard-container::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.3);
+    border-radius: 3px;
+}
+
+.graveyard-title {
+    font-size: 18px;
+    color: #a4dddb;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    padding-bottom: 5px;
+    margin-bottom: 5px;
+    position: sticky;
+    top: 0;
+    background: rgba(0,0,0,0.0);
+    backdrop-filter: blur(0);
+}
+
+.tombstone {
+    font-size: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding-bottom: 4px;
+    flex-shrink: 0; 
+}
+
+.tombstone span {
+    display: block;
+    font-size: 12px;
+    color: #888;
+}
+
+.fish-card {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    padding: 10px;
+    min-width: 100px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.2s, filter 0.2s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    position: relative;
+    opacity: 0.8;
+    border: 2px solid transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.fish-card:hover {
+    transform: translateY(-10px);
+    opacity: 1;
+    z-index: 10;
+}
+
+.fish-card.locked {
+    background: rgba(100, 100, 100, 0.5);
+    cursor: not-allowed;
+    filter: grayscale(1);
+}
+
+.fish-card.affordable {
+    border-color: #88e1d5;
+    box-shadow: 0 0 15px rgba(136, 225, 213, 0.5);
+}
+
+/* Predator Badge Style */
+.predator-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: #E74C3C;
+    color: white;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    z-index: 20;
+    cursor: help;
+}
+
+.fish-preview-canvas {
+    margin-bottom: 5px;
+}
+
+.fish-name {
+    font-size: 16px;
+    color: #333;
+    font-weight: bold;
+}
+
+.fish-cost {
+    font-size: 14px;
+    color: #666;
+}
+
+#toast {
+    position: absolute;
+    top: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+
+.tutorial-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: rgba(255,255,255,0.8);
+    font-size: 24px;
+    pointer-events: none;
+    animation: fadeOut 5s forwards;
+    animation-delay: 3s;
+    text-align: center;
+}
+
+#idlePrompt {
+    position: absolute;
+    top: 60%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: rgba(255,255,255,0.9);
+    font-size: 24px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 1s;
+    text-align: center;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    font-family: 'Patrick Hand', cursive;
+}
+
+/* Overlays */
+#helpOverlay, #restartOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: 100;
+}
+
+#helpOverlay.show, #restartOverlay.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.help-modal, .restart-modal {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    position: relative;
+    text-align: center;
+}
+
+.help-modal h2, .restart-modal h2 {
+    color: #2b3a42;
+    margin-top: 0;
+    border-bottom: 2px solid #a4dddb;
+    padding-bottom: 10px;
+}
+
+.help-modal h3 {
+    color: #E76F51;
+    margin-bottom: 5px;
+    text-align: left;
+}
+
+.help-modal p {
+    color: #555;
+    line-height: 1.5;
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.restart-modal p {
+    color: #555;
+    font-size: 18px;
+    margin: 20px 0;
+}
+
+.restart-btn {
+    background: #E76F51;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 30px;
+    font-family: 'Patrick Hand', cursive;
+    font-size: 20px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 10px rgba(231, 111, 81, 0.3);
+}
+
+.restart-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 15px rgba(231, 111, 81, 0.4);
+}
+
+.close-help {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 24px;
+    cursor: pointer;
+    color: #888;
+}
+
+.close-help:hover {
+    color: #333;
+}
+
+@keyframes fadeOut {
+    to { opacity: 0; }
+}
+
+/* --- UI Toggle Button --- */
+.ui-toggle-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 1000;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+}
+
+.ui-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.4);
+    transform: scale(1.1);
+}
+
+/* Sound Toggle Button */
+.sound-toggle-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 1000;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+    margin-right: 10px; 
+}
+
+.sound-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.4);
+    transform: scale(1.1);
+}
+
+.sound-toggle-btn.muted {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
+
+/* Hidden State */
+body.ui-hidden .hideable,
+body.ui-hidden .bottom-ui,
+body.ui-hidden .tutorial-text,
+body.ui-hidden #idlePrompt,
+body.ui-hidden #toast {
+    opacity: 0 !important;
+    transition: opacity 0.8s ease;
+}
+
+body.ui-hidden .shop-container,
+body.ui-hidden .graveyard-container,
+body.ui-hidden .hud-top,
+body.ui-hidden .hideable {
+    pointer-events: none !important;
+}
+
+body.ui-hidden .ui-toggle-btn {
+    opacity: 0.3;
+    background: transparent;
+    border-color: transparent;
+}
+
+body.ui-hidden .ui-toggle-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.2);
+}
+
