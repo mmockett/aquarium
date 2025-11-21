@@ -602,7 +602,7 @@
         };
 
         // --- Gemini API Integration ---
-        const apiKey = ""; // Injected by environment
+        const apiKey = "AIzaSyALgK-rgllf6cG6gFU334hsZnlNE7qRvl0"; // Injected by environment
 
         async function callGemini(prompt) {
             if (!apiKey) return null; 
@@ -936,6 +936,10 @@
 
                 this.digestionSlowdown = 1.0; 
                 
+                // NEW: Hunting Cooldown (2-3 minutes)
+                // Prevents chain-killing. Fish enters "Food Coma" after eating.
+                this.huntingCooldown = this.species.isPredator ? rand(120 * 1000, 180 * 1000) : 0;
+
                 this.tailAngle = 0;
                 this.tailSpeed = 0.2;
                 
@@ -1071,24 +1075,34 @@
                     }
                     
                     if (amPredator) {
-                        // If other is predator, check for TANTRUM logic
-                        if (other.species.isPredator) {
-                            if (dSq < tantrumRangeSq && dSq < nearestRivalDistSq) {
-                                nearestRival = other;
-                                nearestRivalDistSq = dSq;
+                        // NEW: Hunting Cooldown Check
+                        // Only hunt if enough time has passed since last meal
+                        const isHungry = (Date.now() - this.lastAteTime) > this.huntingCooldown;
+
+                        if (isHungry) {
+                            // If other is predator, check for TANTRUM logic
+                            if (other.species.isPredator) {
+                                if (dSq < tantrumRangeSq && dSq < nearestRivalDistSq) {
+                                    nearestRival = other;
+                                    nearestRivalDistSq = dSq;
+                                }
+                            } 
+                            // Normal Prey Logic
+                            else if (other.size < this.size * 0.6) {
+                                if (dSq < (this.size * 0.8)**2) {
+                                    if (dSq < closestPreyDistSq && dSq < huntRangeSq) {
+                                        closestPreyDistSq = dSq;
+                                        closestPrey = other;
+                                    }
+                                } else if (dSq < huntRangeSq && dSq < closestPreyDistSq) {
+                                    closestPreyDistSq = dSq;
+                                    closestPrey = other;
+                                }
                             }
-                        } 
-                        // Normal Prey Logic
-                        else if (other.size < this.size * 0.6) {
-                             if (dSq < (this.size * 0.8)**2) {
-                                 if (dSq < closestPreyDistSq && dSq < huntRangeSq) {
-                                     closestPreyDistSq = dSq;
-                                     closestPrey = other;
-                                 }
-                            } else if (dSq < huntRangeSq && dSq < closestPreyDistSq) {
-                                closestPreyDistSq = dSq;
-                                closestPrey = other;
-                            }
+                        } else {
+                            // If not hungry, we might still check for rivals (tantrums), 
+                            // but for now let's say a full predator is too lazy to fight too.
+                            // (Optional: Move Tantrum check outside isHungry if you want fat predators to still fight)
                         }
                     }
                     
