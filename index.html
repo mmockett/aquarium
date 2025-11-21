@@ -441,8 +441,15 @@
         body.ui-hidden #idlePrompt,
         body.ui-hidden #toast {
             opacity: 0 !important;
-            pointer-events: none !important;
             transition: opacity 0.8s ease;
+        }
+
+        /* FIX: Explicitly disable pointer events on containers that are normally 'auto' */
+        body.ui-hidden .shop-container,
+        body.ui-hidden .graveyard-container,
+        body.ui-hidden .hud-top,
+        body.ui-hidden .hideable {
+            pointer-events: none !important;
         }
 
         /* Toggle button becomes subtle when UI is hidden */
@@ -513,6 +520,9 @@
                 
                 <h3>🦈 Predators & Prey</h3>
                 <p>Some spirits hunt others! Predators will lock onto smaller prey. Prey that have eaten recently (within 20s) can sprint to escape.</p>
+
+                <h3>⚠️ Territorial Tantrums</h3>
+                <p>If two predators get too close, they will fight! While fighting (marked by 💢), they are too distracted to hunt prey.</p>
                 
                 <h3>✨ Talk to Spirits</h3>
                 <p>Toggle "Talk" mode to click on spirits and hear their thoughts. In this mode, they slow down for you.</p>
@@ -908,7 +918,15 @@
                 this.size = type.size;
                 
                 this.birthTime = Date.now();
-                this.lifespan = rand(60 * 60 * 1000, 24 * 60 * 60 * 1000); 
+                
+                // BALANCE CHANGE: Predators die much faster (10-30 mins) to prevent tank wipes
+                // Normal fish live 1-24 hours
+                if (this.species.isPredator) {
+                    this.lifespan = rand(10 * 60 * 1000, 30 * 60 * 1000);
+                } else {
+                    this.lifespan = rand(60 * 60 * 1000, 24 * 60 * 60 * 1000); 
+                }
+
                 this.isDead = false;
                 this.isEaten = false; 
                 
@@ -927,6 +945,7 @@
 
                 this.romanceTarget = null; 
                 this.huntingTarget = null;
+                this.tantrumTarget = null; // NEW: Track rival predator
 
                 // Offset Logic update to avoid every fish computing complex AI on same frame
                 this.aiOffset = Math.floor(Math.random() * 3);
@@ -1014,6 +1033,11 @@
                 let fleeVector = new Vector(0, 0);
                 const fleeRangeSq = 150**2;
                 
+                // NEW: Logic for "Tantrums"
+                let nearestRival = null;
+                let nearestRivalDistSq = Infinity;
+                const tantrumRangeSq = 200**2;
+
                 const amPredator = this.species.isPredator;
                 const amPrey = !amPredator;
 
@@ -1047,7 +1071,15 @@
                     }
                     
                     if (amPredator) {
-                        if (!other.species.isPredator && other.size < this.size * 0.6) {
+                        // If other is predator, check for TANTRUM logic
+                        if (other.species.isPredator) {
+                            if (dSq < tantrumRangeSq && dSq < nearestRivalDistSq) {
+                                nearestRival = other;
+                                nearestRivalDistSq = dSq;
+                            }
+                        } 
+                        // Normal Prey Logic
+                        else if (other.size < this.size * 0.6) {
                              if (dSq < (this.size * 0.8)**2) {
                                  if (dSq < closestPreyDistSq && dSq < huntRangeSq) {
                                      closestPreyDistSq = dSq;
@@ -1069,30 +1101,56 @@
                     }
                 }
 
-                if (sepCount > 0) {
-                    sep.div(sepCount); sep.normalize(); sep.mult(this.maxSpeed); sep.sub(this.vel); sep.limit(this.maxForce * 2.0);
-                    this.acc.add(sep.mult(1.5));
-                }
-                if (aliCount > 0) {
-                    ali.div(aliCount); ali.normalize(); ali.mult(this.maxSpeed); ali.sub(this.vel); ali.limit(this.maxForce);
-                    this.acc.add(ali.mult(1.0));
-                }
-                if (cohCount > 0) {
-                    coh.div(cohCount);
-                    let desired = Vector.sub(coh, this.pos);
-                    desired.normalize(); desired.mult(this.maxSpeed);
-                    let steer = Vector.sub(desired, this.vel); steer.limit(this.maxForce);
-                    this.acc.add(steer.mult(1.0));
-                }
-
-                if (amPredator && closestPrey) {
-                     this.huntingTarget = closestPrey; 
-                     let desired = Vector.sub(closestPrey.pos, this.pos);
-                     desired.normalize();
-                     desired.mult(this.maxSpeed * 1.2);
-                     let steer = Vector.sub(desired, this.vel);
-                     steer.limit(this.maxForce * 1.5);
+                // TANTRUM LOGIC: Overrides hunger if a rival is near
+                if (nearestRival) {
+                     this.tantrumTarget = nearestRival;
+                     // Circle the rival (Perpendicular vector)
+                     let toRival = Vector.sub(nearestRival.pos, this.pos);
+                     toRival.normalize();
+                     let tangent = new Vector(-toRival.y, toRival.x); // 90 deg rotation
+                     tangent.mult(this.maxSpeed * 1.5);
+                     
+                     let steer = Vector.sub(tangent, this.vel);
+                     steer.limit(this.maxForce * 2);
                      this.acc.add(steer);
+
+                     // REMOVED: Frustration emote for cleaner aesthetic
+                     // if (Math.random() < 0.05 && !this.chatText) {
+                     //    this.chatText = "💢";
+                     //    this.chatTimer = 60;
+                     // }
+
+                     // Clear hunting target so we don't chase food/prey
+                     this.huntingTarget = null;
+                } else {
+                     this.tantrumTarget = null;
+                     
+                     // Normal behaviors
+                     if (sepCount > 0) {
+                        sep.div(sepCount); sep.normalize(); sep.mult(this.maxSpeed); sep.sub(this.vel); sep.limit(this.maxForce * 2.0);
+                        this.acc.add(sep.mult(1.5));
+                    }
+                    if (aliCount > 0) {
+                        ali.div(aliCount); ali.normalize(); ali.mult(this.maxSpeed); ali.sub(this.vel); ali.limit(this.maxForce);
+                        this.acc.add(ali.mult(1.0));
+                    }
+                    if (cohCount > 0) {
+                        coh.div(cohCount);
+                        let desired = Vector.sub(coh, this.pos);
+                        desired.normalize(); desired.mult(this.maxSpeed);
+                        let steer = Vector.sub(desired, this.vel); steer.limit(this.maxForce);
+                        this.acc.add(steer.mult(1.0));
+                    }
+
+                    if (amPredator && closestPrey) {
+                         this.huntingTarget = closestPrey; 
+                         let desired = Vector.sub(closestPrey.pos, this.pos);
+                         desired.normalize();
+                         desired.mult(this.maxSpeed * 1.2);
+                         let steer = Vector.sub(desired, this.vel);
+                         steer.limit(this.maxForce * 1.5);
+                         this.acc.add(steer);
+                    }
                 }
 
                 if (amPrey && (fleeVector.x !== 0 || fleeVector.y !== 0)) {
@@ -1121,7 +1179,11 @@
 
                     // OPTIMIZATION: Check logic less frequently
                     if (frameCount % 60 === 0) {
-                        if (Math.random() < 0.02 && fishes.length <= 50) {
+                        // BALANCE CHANGE: Predators reproduce significantly less often
+                        let mateChance = 0.02; // Base chance for normal fish
+                        if (this.species.isPredator) mateChance = 0.002; // 10x less likely for predators
+
+                        if (Math.random() < mateChance && fishes.length <= 50) {
                              const maturityAge = 60 * 1000;
                              const minCooldown = 5 * 60 * 1000;
                              
@@ -1162,7 +1224,8 @@
                 }
 
                 // Predation Logic
-                if (this.species.isPredator && this.huntingTarget) {
+                // NEW: If Fighting/Tantruming, DO NOT hunt.
+                if (this.species.isPredator && this.huntingTarget && !this.tantrumTarget) {
                     if (this.huntingTarget.isDead || Vector.distSq(this.pos, this.huntingTarget.pos) > 400**2) {
                         this.huntingTarget = null;
                     } else if (Vector.distSq(this.pos, this.huntingTarget.pos) < (this.size * 0.8)**2) {
@@ -1172,6 +1235,9 @@
                         this.feed();
                         this.huntingTarget = null;
                     }
+                } else if (this.tantrumTarget) {
+                    // Clear hunting target if we started fighting
+                    this.huntingTarget = null;
                 }
 
                 if (this.isDead) {
@@ -1190,20 +1256,22 @@
                     if (this.chatTimer <= 0) this.chatText = null;
                 }
 
-                // Food Seeking
+                // Food Seeking (Only if not fighting)
                 let target = null;
                 let closestDistSq = Infinity;
                 let closestFood = null;
                 let searchRadSq = 300**2;
 
-                // Check food every frame is okay if food count is low, 
-                // but optimizing closest search could be done via grid too if needed.
-                for (let f of foodList) {
-                    if (!f.eaten) {
-                        let dSq = Vector.distSq(this.pos, f.pos);
-                        if (dSq < searchRadSq && dSq < closestDistSq) {
-                            closestDistSq = dSq;
-                            closestFood = f;
+                if (!this.tantrumTarget) {
+                    // Check food every frame is okay if food count is low, 
+                    // but optimizing closest search could be done via grid too if needed.
+                    for (let f of foodList) {
+                        if (!f.eaten) {
+                            let dSq = Vector.distSq(this.pos, f.pos);
+                            if (dSq < searchRadSq && dSq < closestDistSq) {
+                                closestDistSq = dSq;
+                                closestFood = f;
+                            }
                         }
                     }
                 }
