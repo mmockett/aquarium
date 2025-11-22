@@ -610,8 +610,15 @@ function drawBackground() {
     // Draw Caustics using low-res upscaling for performance-friendly "blur"
     if (causticCanvas) {
         const cCtx = causticCanvas.getContext('2d');
-        const cW = causticCanvas.width;
-        const cH = causticCanvas.height;
+        // Even lower resolution for stronger blur (1/6 instead of 1/4)
+        const cW = Math.ceil(width / 6);
+        const cH = Math.ceil(height / 6);
+        
+        // Ensure canvas size matches
+        if (causticCanvas.width !== cW) {
+            causticCanvas.width = cW;
+            causticCanvas.height = cH;
+        }
         
         cCtx.clearRect(0, 0, cW, cH);
         cCtx.fillStyle = CONFIG.colors.caustic;
@@ -620,8 +627,8 @@ function drawBackground() {
         // Draw caustics on small canvas (coordinates scaled down)
         for (let i = 0; i < 5; i++) {
             cCtx.beginPath();
-            // Scale input coordinates by 0.25 (1/4)
-            let x = ((width * 0.2 * i) + Math.sin(time + i) * 50) * 0.25;
+            // Scale input coordinates by 1/6
+            let x = ((width * 0.2 * i) + Math.sin(time + i) * 50) * (1/6);
             cCtx.moveTo(x - 25, cH);
             cCtx.lineTo(x + 75, 0);
             cCtx.lineTo(x + 125, 0);
