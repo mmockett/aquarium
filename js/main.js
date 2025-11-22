@@ -57,7 +57,11 @@ function init() {
     document.querySelector('.restart-btn').addEventListener('click', restartGame);
 
 
-    fishes.push(new Fish(SPECIES[0], false, width, height));
+    // Try to load game, otherwise initialize default
+    if (!loadGame()) {
+        fishes.push(new Fish(SPECIES[0], false, width, height));
+    }
+    
     for(let i=0; i<20; i++) particles.push(new Bubble(width, height));
 
     initShop();
@@ -66,9 +70,85 @@ function init() {
     setInterval(() => {
         score += fishes.length;
         UI.updateScore(score);
+        saveGame(); // Autosave
     }, 3000);
 
+    // Save on close
+    window.addEventListener('beforeunload', () => saveGame());
+
     resetIdleTimer();
+}
+
+function saveGame() {
+    const data = {
+        score,
+        unlockedSpecies: Array.from(unlockedSpecies),
+        fishes: fishes.map(f => ({
+            speciesId: f.species.id,
+            pos: f.pos,
+            vel: f.vel,
+            size: f.size,
+            energy: f.energy,
+            name: f.name,
+            birthTime: f.birthTime,
+            lifespan: f.lifespan,
+            childrenCount: f.childrenCount,
+            fullCooldown: f.fullCooldown
+        }))
+    };
+    localStorage.setItem('spiritAquariumSave', JSON.stringify(data));
+}
+
+function loadGame() {
+    const saved = localStorage.getItem('spiritAquariumSave');
+    if (!saved) return false;
+
+    try {
+        const data = JSON.parse(saved);
+        
+        // Validate data structure minimally
+        if (typeof data.score !== 'number' || !Array.isArray(data.fishes)) {
+            console.warn("Invalid save data format");
+            return false;
+        }
+
+        // Restore score
+        score = data.score;
+        UI.updateScore(score);
+
+        // Restore unlocks
+        if (Array.isArray(data.unlockedSpecies)) {
+            unlockedSpecies = new Set(data.unlockedSpecies);
+        }
+
+        // Restore fishes
+        fishes = [];
+        data.fishes.forEach(fData => {
+            const species = SPECIES.find(s => s.id === fData.speciesId);
+            if (species) {
+                const fish = new Fish(species, false, width, height);
+                // Override properties
+                if (fData.pos) fish.pos = new Vector(fData.pos.x, fData.pos.y);
+                if (fData.vel) fish.vel = new Vector(fData.vel.x, fData.vel.y);
+                if (fData.size) fish.size = fData.size;
+                if (fData.energy) fish.energy = fData.energy;
+                if (fData.name) fish.name = fData.name;
+                if (fData.birthTime) fish.birthTime = fData.birthTime;
+                if (fData.lifespan) fish.lifespan = fData.lifespan;
+                if (fData.childrenCount) fish.childrenCount = fData.childrenCount;
+                if (fData.fullCooldown) fish.fullCooldown = fData.fullCooldown;
+                
+                fishes.push(fish);
+            }
+        });
+
+        // If no fish survived loading (or empty save), return false to trigger default init
+        return fishes.length > 0;
+
+    } catch (e) {
+        console.error("Failed to load game:", e);
+        return false;
+    }
 }
 
 function resetIdleTimer() {
@@ -103,10 +183,20 @@ function toggleTalkMode() {
         btn.innerText = "🐟 Feed the Spirits";
         document.body.style.cursor = "help";
         sound.playBloop(1.5);
+        
+        // Show status message at smaller breakpoint
+        if (window.innerWidth < 660) {
+            UI.showToast("✨ Talk to Spirits: ON");
+        }
     } else {
         btn.classList.remove('active');
         btn.innerText = "✨ Talk to Spirits";
         document.body.style.cursor = "default";
+        
+        // Show status message at smaller breakpoint
+        if (window.innerWidth < 660) {
+            UI.showToast("✨ Talk to Spirits: OFF");
+        }
     }
 }
 
@@ -123,12 +213,22 @@ function toggleAutoFeed() {
         
         // Clear any existing idle prompt immediately
         resetIdleTimer();
+        
+        // Show status message at smaller breakpoint
+        if (window.innerWidth < 660) {
+            UI.showToast("🍂 Auto Feed: ON");
+        }
     } else {
         btn.classList.remove('active');
         btn.innerText = "🍂 Auto Feed: OFF";
         
         // Re-enable idle tracking
         resetIdleTimer();
+        
+        // Show status message at smaller breakpoint
+        if (window.innerWidth < 660) {
+            UI.showToast("🍂 Auto Feed: OFF");
+        }
     }
     
     // Clear legacy timer if it exists (cleanup)
