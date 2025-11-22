@@ -76,6 +76,15 @@ function loadFishParts(basePath) {
     // Load config asynchronously
     loadFishConfig(basePath).then(config => {
         parts.config = config;
+        // Pre-calculate sort order once config is loaded
+        parts.sortedKeys = [
+            'pelvicFin1', 'pelvicFin2', 'body', 
+            'pectoralFin1', 'pectoralFin2', 'tail', 'dorsalFin'
+        ].sort((a, b) => {
+            const zA = (config[a] || {}).zIndex || 0;
+            const zB = (config[b] || {}).zIndex || 0;
+            return zA - zB;
+        });
     });
     
     fishPartsCache.set(basePath, parts);
@@ -829,11 +838,15 @@ export class Fish {
         const baseScale = (this.size * 2) / Math.max(bodyWidth, bodyHeight);
 
         // Calculate animation values (in radians)
-        const tailWag = this.isDead ? 0 : Math.sin(this.tailAngle) * 0.4; // Tail rotation
-        const finWag = this.isDead ? 0 : Math.cos(this.tailAngle) * 0.2; // Fin rotation
+        // Reduced wiggle amplitude (0.4 -> 0.2 for tail, 0.2 -> 0.1 for fins)
+        const tailWag = this.isDead ? 0 : Math.sin(this.tailAngle) * 0.2; 
+        const finWag = this.isDead ? 0 : Math.cos(this.tailAngle) * 0.1; 
 
         // Helper to draw a part
-        const drawPart = (partImg, partConfig, rotation = 0) => {
+        const drawPart = (key, rotation) => {
+            const partImg = parts[key];
+            const partConfig = config[key];
+            
             if (!partImg || !partImg.complete || !partConfig) return;
             
             const scale = baseScale * (partConfig.scale || 1.0);
@@ -870,24 +883,35 @@ export class Fish {
             ctx.restore();
         };
 
-        // Sort parts by z-index to draw in correct order
-        const drawOrder = [
-            { key: 'pelvicFin1', img: parts.pelvicFin1, rot: -finWag },
-            { key: 'pelvicFin2', img: parts.pelvicFin2, rot: finWag },
-            { key: 'body', img: parts.body, rot: 0 },
-            { key: 'pectoralFin1', img: parts.pectoralFin1, rot: finWag },
-            { key: 'pectoralFin2', img: parts.pectoralFin2, rot: -finWag },
-            { key: 'tail', img: parts.tail, rot: tailWag },
-            { key: 'dorsalFin', img: parts.dorsalFin, rot: finWag }
-        ].sort((a, b) => {
-            const zA = (config[a.key] || {}).zIndex || 0;
-            const zB = (config[b.key] || {}).zIndex || 0;
-            return zA - zB;
-        });
+        // Use pre-sorted keys if available, otherwise default order (or just wait for config)
+        const keys = parts.sortedKeys || [
+            'pelvicFin1', 'pelvicFin2', 'body', 
+            'pectoralFin1', 'pectoralFin2', 'tail', 'dorsalFin'
+        ];
 
         // Draw all parts in order
-        for (const item of drawOrder) {
-            drawPart(item.img, config[item.key], item.rot);
+        for (const key of keys) {
+            let rot = 0;
+            if (key === 'tail') rot = tailWag;
+            else if (key === 'body') rot = 0;
+            else if (key.includes('Fin') && !key.includes('dorsal')) rot = key.endsWith('2') ? -finWag : finWag; // Pectoral/Pelvic
+            else rot = finWag; // Dorsal
+
+            // Specific override logic matching original
+            if (key === 'pectoralFin2' || key === 'pelvicFin1') rot = -finWag; // Logic check: 
+            // Original: 
+            // pelvic1: -finWag
+            // pelvic2: finWag
+            // pectoral1: finWag
+            // pectoral2: -finWag
+            // dorsal: finWag
+            
+            if (key === 'pelvicFin1' || key === 'pectoralFin2') rot = -finWag;
+            else if (key === 'pelvicFin2' || key === 'pectoralFin1' || key === 'dorsalFin') rot = finWag;
+            else if (key === 'tail') rot = tailWag;
+            else rot = 0;
+
+            drawPart(key, rot);
         }
 
         ctx.globalAlpha = 1.0;
