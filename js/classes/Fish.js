@@ -146,6 +146,7 @@ export class Fish {
 
         this.childrenCount = 0; // Track number of offspring
         this.facingLeft = this.vel.x < 0; // Track facing direction for smooth turns
+        this.visualAngle = this.angle; // Decoupled visual rotation for smoothing
 
         this.generateName();
     }
@@ -185,23 +186,15 @@ export class Fish {
             child.pos = new Vector(spawnPos.x + rand(-5,5), spawnPos.y + rand(-5,5)); 
             child.size = this.species.size * 0.2; 
             child.maxSpeed *= 1.5; 
-            child.lastReproductionTime = Date.now() + rand(5 * 60 * 1000, 10 * 60 * 1000);
+            child.lastReproductionTime = world.now + rand(5 * 60 * 1000, 10 * 60 * 1000);
             world.fishes.push(child);
             
-            for(let j=0; j<8; j++) {
-                if(world.particles.length < 200) {
-                    world.particles.push({
-                        x: spawnPos.x, y: spawnPos.y,
-                        vx: rand(-2,2), vy: rand(-2,2),
-                        life: 1.0, color: '#A4DDBB' 
-                    });
-                }
-            }
+            world.spawnParticles(spawnPos.x, spawnPos.y, 8, '#A4DDBB', 2);
         }
 
         const cooldown = rand(5 * 60 * 1000, 10 * 60 * 1000);
-        this.lastReproductionTime = Date.now() + cooldown;
-        mate.lastReproductionTime = Date.now() + cooldown;
+        this.lastReproductionTime = world.now + cooldown;
+        mate.lastReproductionTime = world.now + cooldown;
         
         this.childrenCount += numOffspring;
         mate.childrenCount += numOffspring;
@@ -234,6 +227,14 @@ export class Fish {
         const amPredator = this.species.isPredator;
         const amPrey = !amPredator;
 
+        // Hysteresis: Keep current hunting target if valid
+        if (amPredator && this.huntingTarget) {
+            if (!this.huntingTarget.isDead && Vector.distSq(this.pos, this.huntingTarget.pos) < huntRangeSq * 1.5) {
+                closestPrey = this.huntingTarget;
+                closestPreyDistSq = Vector.distSq(this.pos, this.huntingTarget.pos);
+            }
+        }
+
         const nearbyFish = world.spatialGrid.getNearby(this);
 
         for (let other of nearbyFish) {
@@ -242,12 +243,16 @@ export class Fish {
             let dSq = Vector.distSq(this.pos, other.pos);
 
             if (dSq < neighborDistSq) {
-                if (dSq < desiredSeparationSq) {
-                    let diff = Vector.sub(this.pos, other.pos);
-                    diff.normalize();
-                    diff.div(Math.sqrt(dSq) || 0.1); 
-                    sep.add(diff);
-                    sepCount++;
+                // Separation: Ignore much smaller fish to prevent large fish from being pushed around
+                const sizeRatio = other.size / this.size;
+                if (sizeRatio > 0.5 || other.species.id === this.species.id) {
+                    if (dSq < desiredSeparationSq) {
+                        let diff = Vector.sub(this.pos, other.pos);
+                        diff.normalize();
+                        diff.div(Math.sqrt(dSq) || 0.1); 
+                        sep.add(diff);
+                        sepCount++;
+                    }
                 }
                 
                 if (other.species.id === this.species.id) {
@@ -262,7 +267,7 @@ export class Fish {
             }
             
             if (amPredator) {
-                const isHungry = (Date.now() - this.lastAteTime) > this.huntingCooldown;
+                const isHungry = (world.now - this.lastAteTime) > this.huntingCooldown;
 
                 if (isHungry) {
                     if (other.species.isPredator) {
@@ -272,12 +277,8 @@ export class Fish {
                         }
                     } 
                     else if (other.size < this.size * 0.6) {
-                        if (dSq < (this.size * 0.8)**2) {
-                            if (dSq < closestPreyDistSq && dSq < huntRangeSq) {
-                                closestPreyDistSq = dSq;
-                                closestPrey = other;
-                            }
-                        } else if (dSq < huntRangeSq && dSq < closestPreyDistSq) {
+                        // Switch target only if significantly closer (20% closer)
+                        if (dSq < huntRangeSq && dSq < closestPreyDistSq * 0.8) {
                             closestPreyDistSq = dSq;
                             closestPrey = other;
                         }
@@ -338,7 +339,7 @@ export class Fish {
         }
 
         if (amPrey && (fleeVector.x !== 0 || fleeVector.y !== 0)) {
-            if (Date.now() - this.lastAteTime < 20000) {
+            if (world.now - this.lastAteTime < 20000) {
                 this.isFleeing = true; // Mark as fleeing for burst speed
                 fleeVector.normalize();
                 fleeVector.mult(this.maxSpeed * 2.5); // Increased from 2.0
@@ -346,12 +347,8 @@ export class Fish {
                 steer.limit(this.maxForce * 3.0);
                 this.acc.add(steer);
                 
-                if (Math.random() < 0.2 && world.particles.length < 200) {
-                     world.particles.push({
-                        x: this.pos.x, y: this.pos.y,
-                        vx: rand(-1,1), vy: rand(-1,1),
-                        life: 0.5, color: '#fff'
-                     });
+                if (Math.random() < 0.2) {
+                     world.spawnParticles(this.pos.x, this.pos.y, 1, '#fff', 1);
                 }
             }
         }
@@ -377,8 +374,8 @@ export class Fish {
                      const minCooldown = 5 * 60 * 1000;
                      
                      if (!this.romanceTarget && 
-                         Date.now() - this.birthTime > maturityAge &&
-                         Date.now() - this.lastReproductionTime > minCooldown && 
+                         world.now - this.birthTime > maturityAge &&
+                         world.now - this.lastReproductionTime > minCooldown && 
                          this.energy >= 80) {
                          
                          // Optimized: Use spatial grid for mate finding instead of iterating all fish
@@ -387,8 +384,8 @@ export class Fish {
                             other !== this && 
                             other.species.id === this.species.id && 
                             other.energy >= 80 && 
-                            Date.now() - other.birthTime > maturityAge && 
-                            Date.now() - other.lastReproductionTime > minCooldown &&
+                            world.now - other.birthTime > maturityAge && 
+                            world.now - other.lastReproductionTime > minCooldown &&
                             distSq(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 200**2 
                          );
                          if (potentialMate) this.romanceTarget = potentialMate;
@@ -402,7 +399,7 @@ export class Fish {
                  }
             }
 
-            if (Date.now() - this.birthTime > this.lifespan || this.energy <= 0) {
+            if (world.now - this.birthTime > this.lifespan || this.energy <= 0) {
                 this.isDead = true;
                 this.deathReason = this.energy <= 0 ? "Starved" : "Old Age";
             }
@@ -480,7 +477,7 @@ export class Fish {
             // Only compute complex behaviors every 5 frames instead of 3
             if (frameCount % 5 === this.aiOffset) {
                 this.computeBehaviors(world);
-                this.wander(); 
+                this.wander(world); 
                 this.boundaries(world.width, world.height);
             }
         }
@@ -518,10 +515,15 @@ export class Fish {
         let diff = desiredAngle - this.angle;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
-        this.angle += diff * CONFIG.physics.turnSpeed;
+        
+        // Slower turns for larger fish to prevent "shaky" look
+        const turnSpeedMod = Math.max(0.2, 15 / this.size); 
+        this.angle += diff * CONFIG.physics.turnSpeed * turnSpeedMod;
 
         let speedPct = this.vel.mag() / (this.maxSpeed || 1);
-        this.tailSpeed = 0.1 + (speedPct * 0.3);
+        // Scale wiggle frequency by size (larger fish = slower beat)
+        const sizeFreqMod = Math.max(1, this.size / 20);
+        this.tailSpeed = (0.1 + (speedPct * 0.3)) / Math.sqrt(sizeFreqMod);
         this.tailAngle += this.tailSpeed;
 
         return 'alive';
@@ -536,14 +538,14 @@ export class Fish {
         this.acc.add(steer);
     }
 
-    wander() {
+    wander(world) {
         let wanderR = 50;
         let wanderD = 100;
         let circlePos = new Vector(this.vel.x, this.vel.y);
         circlePos.normalize();
         circlePos.mult(wanderD);
         circlePos.add(this.pos);
-        let t = Date.now() * 0.001 + this.pos.x; 
+        let t = world.now * 0.001 + this.pos.x; 
         let h = Math.sin(t) * wanderR;
         let target = new Vector(circlePos.x + Math.cos(t)*20, circlePos.y + h);
         this.seek(target);
@@ -570,7 +572,7 @@ export class Fish {
         world.onScoreUpdate(15); 
         this.energy = Math.min(this.maxEnergy, this.energy + 30);
         this.digestionSlowdown = 0.5; 
-        this.lastAteTime = Date.now(); 
+        this.lastAteTime = world.now; 
         
         // Set a random cooldown between 5 and 30 seconds
         this.fullCooldown = rand(5000, 30000);
@@ -581,18 +583,10 @@ export class Fish {
             this.maxSpeed = Math.max(this.species.speed * 0.5, this.maxSpeed - 0.02);
         }
 
-        for(let i=0; i<5; i++) {
-            if (world.particles.length < 200) {
-                world.particles.push({
-                    x: this.pos.x, y: this.pos.y,
-                    vx: rand(-1,1), vy: rand(-1,1),
-                    life: 1.0, color: '#fff'
-                });
-            }
-        }
+        world.spawnParticles(this.pos.x, this.pos.y, 5, '#fff', 1);
     }
 
-    draw(ctx, isTalkMode, mousePos) {
+    draw(ctx, world) {
         if (this.isDead && this.isEaten) return;
 
         // --- 1. Draw UI Elements (Upright, No Rotation) ---
@@ -601,8 +595,8 @@ export class Fish {
 
         // Calculate if hovered
         let isHovered = false;
-        if (isTalkMode && mousePos) {
-            const dSq = distSq(this.pos.x, this.pos.y, mousePos.x, mousePos.y);
+        if (world.isTalkMode && world.mousePos) {
+            const dSq = distSq(this.pos.x, this.pos.y, world.mousePos.x, world.mousePos.y);
             if (dSq < (this.size + 20)**2) {
                 isHovered = true;
             }
@@ -692,7 +686,7 @@ export class Fish {
         }
 
         // Draw Name
-        if (isTalkMode && !this.isDead && this.size > 0) {
+        if (world.isTalkMode && !this.isDead && this.size > 0) {
             ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
             ctx.font = "bold 14px 'Patrick Hand'";
             ctx.textAlign = "center";
@@ -708,37 +702,59 @@ export class Fish {
         ctx.save();
         ctx.translate(this.pos.x, this.pos.y);
         
-        // Update facing direction with hysteresis to prevent jitter when swimming vertically
-        const turnThreshold = 0.2;
-        if (this.vel.x < -turnThreshold) {
-            this.facingLeft = true;
-        } else if (this.vel.x > turnThreshold) {
-            this.facingLeft = false;
-        }
+        // Smoothly interpolate visual angle towards physics angle
+        // Handle wrap-around
+        let diff = this.angle - this.visualAngle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
         
-        // Robust rotation logic to ensure fish is always "belly down"
-        if (this.facingLeft) {
-            // Swimming Left
-            ctx.scale(-1, 1); // Flip horizontal
-            // Rotate based on the mirrored velocity (as if swimming right)
-            // This keeps the belly down because we aren't rotating 180 degrees
-            let angle = Math.atan2(this.vel.y, -this.vel.x);
-            ctx.rotate(angle);
+        // Smoothing factor: Lower = smoother/slower. 
+        // Scale by size: Large fish (60) get 0.05, Small fish (15) get 0.2
+        const smoothFactor = Math.max(0.05, 3.0 / this.size);
+        this.visualAngle += diff * smoothFactor;
+
+        // Update facing direction with hysteresis based on visualAngle to prevent jitter
+        // Standard angle 0 is Right. PI is Left.
+        // We want to flip Y if the fish is facing Left (Left Hemisphere: PI/2 to 3PI/2)
+        // Use absolute angle relative to 0 (Right)
+        let normalizedAngle = this.visualAngle;
+        while (normalizedAngle < 0) normalizedAngle += Math.PI * 2;
+        while (normalizedAngle >= Math.PI * 2) normalizedAngle -= Math.PI * 2;
+        
+        const isLeftHemisphere = normalizedAngle > Math.PI / 2 && normalizedAngle < 3 * Math.PI / 2;
+        
+        // Add hysteresis at the vertical boundary
+        const buffer = 0.2;
+        if (isLeftHemisphere) {
+             if (normalizedAngle > Math.PI / 2 + buffer && normalizedAngle < 3 * Math.PI / 2 - buffer) {
+                 this.facingLeft = true;
+             }
         } else {
-            // Swimming Right
-            let angle = Math.atan2(this.vel.y, this.vel.x);
-            ctx.rotate(angle);
+             // Right hemisphere
+             // Check if we are safely inside right hemisphere
+             if (normalizedAngle < Math.PI / 2 - buffer || normalizedAngle > 3 * Math.PI / 2 + buffer) {
+                 this.facingLeft = false;
+             }
+        }
+
+        // Rotate to visual angle
+        ctx.rotate(this.visualAngle);
+        
+        // If facing left, flip Y axis to keep belly down
+        // (Since we rotated, "Down" is relative to the fish's belly)
+        if (this.facingLeft) {
+            ctx.scale(1, -1);
         }
 
         if (this.species.imagePath) {
-            this.drawImageBased(ctx);
+            this.drawImageBased(ctx, world);
         } else {
-            this.drawVectorBased(ctx);
+            this.drawVectorBased(ctx, world);
         }
         ctx.restore();
     }
 
-    drawVectorBased(ctx) {
+    drawVectorBased(ctx, world) {
         let bodyColor = this.species.colorBody;
         let finColor = this.species.colorFin;
 
@@ -747,7 +763,7 @@ export class Fish {
             bodyColor = '#555';
             finColor = '#333';
         } else if (this.species.id === 'rainbow') {
-            const time = Date.now() * 0.002;
+            const time = world.now * 0.002;
             const grad = ctx.createLinearGradient(-this.size, 0, this.size, 0);
             grad.addColorStop(0, `hsl(${(time * 50) % 360}, 100%, 50%)`);
             grad.addColorStop(1, `hsl(${(time * 50 + 180) % 360}, 100%, 50%)`);
@@ -810,14 +826,14 @@ export class Fish {
         ctx.globalAlpha = 1.0;
     }
 
-    drawImageBased(ctx) {
+    drawImageBased(ctx, world) {
         // Load fish parts (assuming imagePath is the base folder path)
         const parts = loadFishParts(this.species.imagePath);
         
         // Check if body is loaded (use body as indicator)
         if (!parts.body || !parts.body.complete || parts.body.naturalWidth === 0) {
             // Fallback to vector if images not loaded
-            this.drawVectorBased(ctx);
+            this.drawVectorBased(ctx, world);
             return;
         }
 
@@ -848,12 +864,20 @@ export class Fish {
         // Base scale: fit the body width/height into the fish size diameter
         // this.size is radius. So diameter is size*2.
         // We scale such that the body fits within size*2.
+        // For larger fish (River Lord), we might need to adjust this or ensure config scaling handles it.
+        // If River Lord is 4x bigger, this.size is larger, so baseScale increases.
+        // Shakiness might be due to sub-pixel rendering of very large scaled images or pivot alignment.
+        
         const baseScale = (this.size * 2) / Math.max(bodyWidth, bodyHeight);
 
         // Calculate animation values (in radians)
-        // Reduced wiggle amplitude (0.4 -> 0.2 for tail, 0.2 -> 0.1 for fins)
-        const tailWag = this.isDead ? 0 : Math.sin(this.tailAngle) * 0.2; 
-        const finWag = this.isDead ? 0 : Math.cos(this.tailAngle) * 0.1; 
+        // Scale amplitude by size: Larger fish = Smaller amplitude to look heavier
+        // Standard amplitude is 0.2 / 0.1. For River Lord (60), we want maybe 50% of that.
+        // Small fish (15) -> factor 1. Large (60) -> factor 2 or 3.
+        const ampScale = Math.max(1, this.size / 20);
+        
+        const tailWag = this.isDead ? 0 : Math.sin(this.tailAngle) * (0.2 / Math.sqrt(ampScale)); 
+        const finWag = this.isDead ? 0 : Math.cos(this.tailAngle) * (0.1 / Math.sqrt(ampScale)); 
 
         // Helper to draw a part
         const drawPart = (key, rotation) => {
@@ -905,23 +929,20 @@ export class Fish {
         // Draw all parts in order
         for (const key of keys) {
             let rot = 0;
+            
+            // Skip parts that don't have a config or image to prevent drawing errors
+            if (!config[key] || !parts[key]) continue;
+
+            // General logic for rotation based on part type
             if (key === 'tail') rot = tailWag;
             else if (key === 'body') rot = 0;
-            else if (key.includes('Fin') && !key.includes('dorsal')) rot = key.endsWith('2') ? -finWag : finWag; // Pectoral/Pelvic
-            else rot = finWag; // Dorsal
-
-            // Specific override logic matching original
-            if (key === 'pectoralFin2' || key === 'pelvicFin1') rot = -finWag; // Logic check: 
-            // Original: 
-            // pelvic1: -finWag
-            // pelvic2: finWag
-            // pectoral1: finWag
-            // pectoral2: -finWag
-            // dorsal: finWag
-            
-            if (key === 'pelvicFin1' || key === 'pectoralFin2') rot = -finWag;
-            else if (key === 'pelvicFin2' || key === 'pectoralFin1' || key === 'dorsalFin') rot = finWag;
-            else if (key === 'tail') rot = tailWag;
+            // Fin logic: 'Fin 1' usually left/top, 'Fin 2' usually right/bottom
+            // For River Lord/Spirit: 
+            // Pectoral1/Pelvic2 -> finWag
+            // Pectoral2/Pelvic1 -> -finWag
+            // Dorsal -> finWag
+            else if (key === 'pectoralFin1' || key === 'pelvicFin2' || key === 'dorsalFin') rot = finWag;
+            else if (key === 'pectoralFin2' || key === 'pelvicFin1') rot = -finWag;
             else rot = 0;
 
             drawPart(key, rot);

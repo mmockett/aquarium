@@ -62,6 +62,22 @@ function init() {
     document.querySelector('.help-btn').addEventListener('click', UI.toggleHelp);
     document.querySelector('.close-help').addEventListener('click', UI.toggleHelp);
     document.querySelector('.restart-btn').addEventListener('click', restartGame);
+    
+    // Debug Buttons
+    document.getElementById('fullResetBtn').addEventListener('click', () => {
+        if(confirm("Are you sure? This will delete all save data and reload the page.")) {
+            localStorage.clear();
+            location.reload();
+        }
+    });
+    
+    document.getElementById('debugOrbsBtn').addEventListener('click', () => {
+        score += 100000;
+        UI.updateScore(score);
+        updateShopUI();
+        UI.showToast("💰 100,000 Orbs Added!");
+        saveGame();
+    });
 
     // Load background image
     backgroundImage = new Image();
@@ -645,6 +661,38 @@ function drawBackground() {
     }
 }
 
+// World context object (reused to avoid GC)
+const world = {
+    width: 0, height: 0,
+    spatialGrid,
+    foodList: [],
+    fishes: [], 
+    particles: [], 
+    sound,
+    isTalkMode: false,
+    mousePos: {x:0, y:0},
+    now: 0,
+    onScoreUpdate: (amount) => {
+        score += amount;
+        UI.updateScore(score);
+        updateShopUI();
+    },
+    showToast: UI.showToast,
+    spawnParticles: (x, y, count, color, speed = 2) => {
+        for(let i=0; i<count; i++) {
+            if(particles.length < 200) {
+                particles.push({
+                    x, y,
+                    vx: rand(-speed, speed), 
+                    vy: rand(-speed, speed),
+                    life: 1.0, 
+                    color
+                });
+            }
+        }
+    }
+};
+
 function loop() {
     requestAnimationFrame(loop);
     frameCount++;
@@ -704,42 +752,26 @@ function loop() {
     let deadFish = [];
     let eatenFish = []; 
 
-    // World context to pass to Fish update
-    const world = {
-        width, height,
-        spatialGrid,
-        foodList: foodItems, // Use the pre-filtered list
-        fishes: fishes, 
-        particles, 
-        sound,
-        isTalkMode,
-        mousePos,
-        onScoreUpdate: (amount) => {
-            score += amount;
-            UI.updateScore(score);
-            updateShopUI();
-        },
-        showToast: UI.showToast
-    };
+    // Update world context
+    world.width = width;
+    world.height = height;
+    world.now = now;
+    world.foodList = foodItems;
+    world.fishes = fishes;
+    world.particles = particles;
+    world.isTalkMode = isTalkMode;
+    world.mousePos = mousePos;
 
     fishes.forEach(fish => {
         let status = fish.update(world, frameCount); 
-        fish.draw(ctx, isTalkMode, mousePos);
+        fish.draw(ctx, world);
         
         if (status === 'gone') {
             deadFish.push(fish);
         } else if (status === 'eaten') {
             eatenFish.push(fish);
             
-            for(let i=0; i<15; i++) { 
-                if(particles.length < 200) {
-                    particles.push({
-                        x: fish.pos.x, y: fish.pos.y,
-                        vx: rand(-3,3), vy: rand(-3,3),
-                        life: 1.0, color: '#E74C3C' 
-                    });
-                }
-            }
+            world.spawnParticles(fish.pos.x, fish.pos.y, 15, '#E74C3C', 3);
         }
     });
 
