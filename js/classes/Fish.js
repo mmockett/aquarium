@@ -1,6 +1,87 @@
 import { Vector, rand, distSq, callGemini } from '../utils.js';
 import { CONFIG, FALLBACK_NAMES, FALLBACK_PHRASES } from '../config.js';
 
+// Cache for fish images
+const fishImageCache = new Map();
+// Cache for fish parts
+const fishPartsCache = new Map();
+// Cache for fish configurations
+const fishConfigCache = new Map();
+
+function loadFishImage(imagePath) {
+    if (fishImageCache.has(imagePath)) {
+        return fishImageCache.get(imagePath);
+    }
+    const img = new Image();
+    img.src = imagePath;
+    fishImageCache.set(imagePath, img);
+    return img;
+}
+
+async function loadFishConfig(basePath) {
+    if (fishConfigCache.has(basePath)) {
+        return fishConfigCache.get(basePath);
+    }
+    
+    try {
+        const response = await fetch(`${basePath}/config.json`);
+        if (response.ok) {
+            const config = await response.json();
+            fishConfigCache.set(basePath, config);
+            return config;
+        }
+    } catch (e) {
+        console.warn(`Could not load config for ${basePath}:`, e);
+    }
+    
+    // Return default config if file doesn't exist
+    const defaultConfig = {
+        body: { scale: 1.0 },
+        tail: { x: -50, y: 0, pivotX: 0, pivotY: 0, scale: 1.0, flipY: false },
+        dorsalFin: { x: 0, y: -50, pivotX: 0, pivotY: 0, scale: 1.0, flipY: false },
+        pectoralFin1: { x: -50, y: -20, pivotX: 0, pivotY: 0, scale: 1.0, flipY: false },
+        pectoralFin2: { x: 50, y: -20, pivotX: 0, pivotY: 0, scale: 1.0, flipY: false },
+        pelvicFin1: { x: -20, y: 50, pivotX: 0, pivotY: 0, scale: 1.0, flipY: false },
+        pelvicFin2: { x: 20, y: 50, pivotX: 0, pivotY: 0, scale: 1.0, flipY: false }
+    };
+    fishConfigCache.set(basePath, defaultConfig);
+    return defaultConfig;
+}
+
+function loadFishParts(basePath) {
+    if (fishPartsCache.has(basePath)) {
+        return fishPartsCache.get(basePath);
+    }
+    
+    const parts = {
+        body: null,
+        tail: null,
+        dorsalFin: null,
+        pectoralFin1: null,
+        pectoralFin2: null,
+        pelvicFin1: null,
+        pelvicFin2: null,
+        config: null // Will be loaded asynchronously
+    };
+    
+    // Load all parts
+    parts.body = loadFishImage(`${basePath}/Body.png`);
+    parts.tail = loadFishImage(`${basePath}/Tail.png`);
+    parts.dorsalFin = loadFishImage(`${basePath}/Fin.png`);
+    parts.pectoralFin1 = loadFishImage(`${basePath}/Pectoral Fin 1.png`);
+    parts.pectoralFin2 = loadFishImage(`${basePath}/Pectoral Fin 2.png`);
+    parts.pelvicFin1 = loadFishImage(`${basePath}/Pelvic Fin 1.png`);
+    parts.pelvicFin2 = loadFishImage(`${basePath}/Pelvic Fin 2.png`);
+    
+    // Load config asynchronously
+    loadFishConfig(basePath).then(config => {
+        parts.config = config;
+    });
+    
+    fishPartsCache.set(basePath, parts);
+    return parts;
+}
+
 export class Fish {
     constructor(type, isBorn = false, width, height) {
         this.species = type;
@@ -55,6 +136,7 @@ export class Fish {
         }
 
         this.childrenCount = 0; // Track number of offspring
+        this.facingLeft = this.vel.x < 0; // Track facing direction for smooth turns
 
         this.generateName();
     }
@@ -491,6 +573,7 @@ export class Fish {
     draw(ctx, isTalkMode, mousePos) {
         if (this.isDead && this.isEaten) return;
 
+        // --- 1. Draw UI Elements (Upright, No Rotation) ---
         ctx.save();
         ctx.translate(this.pos.x, this.pos.y);
 
@@ -503,6 +586,7 @@ export class Fish {
             }
         }
 
+        // Draw Chat Bubble
         if (this.chatText && !this.isDead && this.size > 0) {
             ctx.save();
             ctx.translate(0, -this.size * 2 - 20);
@@ -526,27 +610,26 @@ export class Fish {
             ctx.restore();
         }
 
-        // Draw detailed stats on hover in Talk Mode
+        // Draw Stats on Hover
         if (isHovered && !this.isDead && this.size > 0) {
             ctx.save();
-            // Position below the name
             ctx.translate(0, this.size + 40);
             
             // Hunger Status
             let hungerStatus = "Full";
-            let hungerColor = "#4ADE80"; // Green
+            let hungerColor = "#4ADE80"; 
             if (this.energy < 30) {
                 hungerStatus = "Starving";
-                hungerColor = "#EF4444"; // Red
+                hungerColor = "#EF4444"; 
             } else if (this.energy < 70) {
                 hungerStatus = "Hungry";
-                hungerColor = "#FCD34D"; // Yellow
+                hungerColor = "#FCD34D"; 
             }
 
             // Parent Status
             const parentStatus = this.childrenCount > 0 ? "Parent" : "";
 
-            // Draw Background for stats
+            // Draw Background
             const statsText = `${hungerStatus}${parentStatus ? ' • ' + parentStatus : ''}`;
             ctx.font = "bold 12px 'Patrick Hand'";
             const metrics = ctx.measureText(statsText);
@@ -583,18 +666,63 @@ export class Fish {
                 ctx.fillStyle = hungerColor;
                 ctx.fillText(hungerStatus, 0, 0);
             }
-
             ctx.restore();
         }
 
-        ctx.rotate(this.angle);
+        // Draw Name
+        if (isTalkMode && !this.isDead && this.size > 0) {
+            ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+            ctx.font = "bold 14px 'Patrick Hand'";
+            ctx.textAlign = "center";
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillText(this.name, 1, this.size + 21);
+            ctx.fillStyle = "white";
+            ctx.fillText(this.name, 0, this.size + 20);
+        }
+        ctx.restore();
 
+
+        // --- 2. Draw Fish (Rotated) ---
+        ctx.save();
+        ctx.translate(this.pos.x, this.pos.y);
+        
+        // Update facing direction with hysteresis to prevent jitter when swimming vertically
+        const turnThreshold = 0.2;
+        if (this.vel.x < -turnThreshold) {
+            this.facingLeft = true;
+        } else if (this.vel.x > turnThreshold) {
+            this.facingLeft = false;
+        }
+        
+        // Robust rotation logic to ensure fish is always "belly down"
+        if (this.facingLeft) {
+            // Swimming Left
+            ctx.scale(-1, 1); // Flip horizontal
+            // Rotate based on the mirrored velocity (as if swimming right)
+            // This keeps the belly down because we aren't rotating 180 degrees
+            let angle = Math.atan2(this.vel.y, -this.vel.x);
+            ctx.rotate(angle);
+        } else {
+            // Swimming Right
+            let angle = Math.atan2(this.vel.y, this.vel.x);
+            ctx.rotate(angle);
+        }
+
+        if (this.species.imagePath) {
+            this.drawImageBased(ctx);
+        } else {
+            this.drawVectorBased(ctx);
+        }
+        ctx.restore();
+    }
+
+    drawVectorBased(ctx) {
         let bodyColor = this.species.colorBody;
         let finColor = this.species.colorFin;
 
         if (this.isDead) {
             ctx.globalAlpha = 0.6;
-            bodyColor = '#555'; // Manual grayscale
+            bodyColor = '#555';
             finColor = '#333';
         } else if (this.species.id === 'rainbow') {
             const time = Date.now() * 0.002;
@@ -657,19 +785,112 @@ export class Fish {
             ctx.quadraticCurveTo(-this.size, -this.size * 1.2, this.size * 0.2, -this.size * 0.5);
             ctx.fill();
         }
+        ctx.globalAlpha = 1.0;
+    }
 
-        if (isTalkMode && !this.isDead && this.size > 0) {
-            ctx.rotate(-this.angle);
-            ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-            ctx.font = "bold 14px 'Patrick Hand'";
-            ctx.textAlign = "center";
-            ctx.fillStyle = "rgba(0,0,0,0.5)";
-            ctx.fillText(this.name, 1, this.size + 21);
-            ctx.fillStyle = "white";
-            ctx.fillText(this.name, 0, this.size + 20);
+    drawImageBased(ctx) {
+        // Load fish parts (assuming imagePath is the base folder path)
+        const parts = loadFishParts(this.species.imagePath);
+        
+        // Check if body is loaded (use body as indicator)
+        if (!parts.body || !parts.body.complete || parts.body.naturalWidth === 0) {
+            // Fallback to vector if images not loaded
+            this.drawVectorBased(ctx);
+            return;
         }
 
-        ctx.restore();
+        // Get config (use cached or default)
+        // NOTE: x/y are relative to image center. pivotX/Y are relative to image center.
+        // Scale logic: baseScale fits the body to this.size. 
+        // Config scale is relative to that base.
+        const config = parts.config || {
+            body: { x: 0, y: 0, scale: 1.0, zIndex: 3, flipY: false, pivotX: 0, pivotY: 0 },
+            tail: { x: 88, y: -4, scale: 1.0, zIndex: 5, flipY: false, pivotX: -40, pivotY: 0 },
+            dorsalFin: { x: 13, y: -34, scale: 1.0, zIndex: 7, flipY: false, pivotX: 0, pivotY: 30 },
+            pectoralFin1: { x: -16, y: 26, scale: 1.0, zIndex: 4, flipY: false, pivotX: 15, pivotY: -10 },
+            pectoralFin2: { x: 20, y: 20, scale: 1.0, zIndex: 4, flipY: false, pivotX: 15, pivotY: -10 },
+            pelvicFin1: { x: -30, y: 34, scale: 1.0, zIndex: 1, flipY: false, pivotX: 10, pivotY: -10 },
+            pelvicFin2: { x: 10, y: 39, scale: 1.0, zIndex: 2, flipY: false, pivotX: 10, pivotY: -10 }
+        };
+
+        if (this.isDead) {
+            ctx.globalAlpha = 0.6;
+        }
+
+        // Fix orientation: The source images face Left, but standard angle 0 is Right.
+        // Flip horizontally so the fish faces the direction of movement.
+        ctx.scale(-1, 1);
+
+        const bodyWidth = parts.body.width;
+        const bodyHeight = parts.body.height;
+        // Base scale: fit the body width/height into the fish size diameter
+        // this.size is radius. So diameter is size*2.
+        // We scale such that the body fits within size*2.
+        const baseScale = (this.size * 2) / Math.max(bodyWidth, bodyHeight);
+
+        // Calculate animation values (in radians)
+        const tailWag = this.isDead ? 0 : Math.sin(this.tailAngle) * 0.4; // Tail rotation
+        const finWag = this.isDead ? 0 : Math.cos(this.tailAngle) * 0.2; // Fin rotation
+
+        // Helper to draw a part
+        const drawPart = (partImg, partConfig, rotation = 0) => {
+            if (!partImg || !partImg.complete || !partConfig) return;
+            
+            const scale = baseScale * (partConfig.scale || 1.0);
+            const flipY = partConfig.flipY ? -1 : 1;
+            
+            ctx.save();
+            // Move to position relative to center
+            ctx.translate(partConfig.x * baseScale, partConfig.y * baseScale);
+            
+            // Move to pivot point
+            ctx.translate(partConfig.pivotX * baseScale, partConfig.pivotY * baseScale);
+            
+            // Rotate
+            ctx.rotate(rotation);
+            
+            // Move back from pivot point
+            ctx.translate(-partConfig.pivotX * baseScale, -partConfig.pivotY * baseScale);
+            
+            // Flip if needed
+            if (partConfig.flipY) {
+                ctx.scale(1, -1);
+            }
+
+            // Draw image centered at 0,0 (which is now the position set by translate)
+            // We assume the config x/y are the center of the image relative to fish center
+            ctx.drawImage(
+                partImg,
+                -partImg.width * scale / 2, 
+                -partImg.height * scale / 2,
+                partImg.width * scale, 
+                partImg.height * scale
+            );
+            
+            ctx.restore();
+        };
+
+        // Sort parts by z-index to draw in correct order
+        const drawOrder = [
+            { key: 'pelvicFin1', img: parts.pelvicFin1, rot: -finWag },
+            { key: 'pelvicFin2', img: parts.pelvicFin2, rot: finWag },
+            { key: 'body', img: parts.body, rot: 0 },
+            { key: 'pectoralFin1', img: parts.pectoralFin1, rot: finWag },
+            { key: 'pectoralFin2', img: parts.pectoralFin2, rot: -finWag },
+            { key: 'tail', img: parts.tail, rot: tailWag },
+            { key: 'dorsalFin', img: parts.dorsalFin, rot: finWag }
+        ].sort((a, b) => {
+            const zA = (config[a.key] || {}).zIndex || 0;
+            const zB = (config[b.key] || {}).zIndex || 0;
+            return zA - zB;
+        });
+
+        // Draw all parts in order
+        for (const item of drawOrder) {
+            drawPart(item.img, config[item.key], item.rot);
+        }
+
+        ctx.globalAlpha = 1.0;
     }
 }
 

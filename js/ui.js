@@ -5,6 +5,23 @@ export function showToast(msg) {
     setTimeout(() => t.style.opacity = 0, 2000);
 }
 
+export function updateFishCounts(fishes) {
+    // Count fish by species
+    const counts = {};
+    fishes.forEach(f => {
+        const id = f.species.id;
+        counts[id] = (counts[id] || 0) + 1;
+    });
+
+    // Update UI
+    const countEls = document.querySelectorAll('.fish-count');
+    countEls.forEach(el => {
+        const speciesId = el.id.replace('count-', '');
+        const count = counts[speciesId] || 0;
+        el.innerText = `${count} alive`;
+    });
+}
+
 export function toggleHelp() {
     const overlay = document.getElementById('helpOverlay');
     overlay.classList.toggle('show');

@@ -77,8 +77,8 @@ export const CONFIG = {
 };
 
 export const SPECIES = [
-    { id: 'basic', name: 'River Spirit', cost: 100, colorBody: '#E86F51', colorFin: '#F4A261', size: 15, speed: 2.5, finType: 'simple', personality: 'curious and bubbly', soundPitch: 1.0 },
-    { id: 'starbit', name: 'Star Bit Guppy', cost: 250, colorBody: '#FFD93D', colorFin: '#FFF', size: 10, speed: 4.0, finType: 'simple', personality: 'energetic, starlike, and fast', soundPitch: 1.5 },
+    { id: 'basic', name: 'River Spirit', cost: 100, colorBody: '#E86F51', colorFin: '#F4A261', size: 15, speed: 2.5, finType: 'simple', personality: 'curious and bubbly', soundPitch: 1.0, imagePath: 'assets/fish/River Spirit' },
+    { id: 'starbit', name: 'Star Bit Guppy', cost: 250, colorBody: '#FFD93D', colorFin: '#FFF', size: 10, speed: 4.0, finType: 'simple', personality: 'energetic, starlike, and fast', soundPitch: 1.5, imagePath: 'assets/fish/Star Bit Guppy' },
     { id: 'kodama', name: 'Kodama Tetra', cost: 350, colorBody: '#F1FAEE', colorFin: '#A8DADC', size: 12, speed: 3.5, finType: 'glow', personality: 'playful, clicking, and mysterious', soundPitch: 1.2 },
     { id: 'forest', name: 'Mossy Carp', cost: 800, colorBody: '#457B9D', colorFin: '#1D3557', size: 25, speed: 1.8, finType: 'flowing', personality: 'slow, wise, and sleepy', soundPitch: 0.8 },
     { id: 'hunter', name: 'Shadow Hunter', cost: 1200, colorBody: '#2C3E50', colorFin: '#E74C3C', size: 30, speed: 3.8, finType: 'fancy', personality: 'aggressive, hunting, and sharp', isPredator: true, soundPitch: 0.6 },
