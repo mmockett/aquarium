@@ -25,11 +25,11 @@ let idleTimer = null;
 let frameCount = 0;
 let backgroundImage = null;
 let bgCache = null;
+let causticCanvas = null; // Low-res canvas for free blur
 let weedImages = [];
 const WEED_FILES = ['assets/weeds/Weeds.png', 'assets/weeds/Weeds 2.png', 'assets/weeds/Weed 3.png'];
 let weedInstances = [];
 let weedCanvases = []; // Cache for pre-blurred weeds
-let causticCache = null; // Cache for pre-blurred caustics
 
 const sound = new SoundManager();
 const spatialGrid = new SpatialHash(150);
@@ -203,7 +203,11 @@ function resize() {
     canvas.width = width;
     canvas.height = height;
     bgCache = null; // Invalidate background cache on resize
-    causticCache = null; // Invalidate caustic cache on resize
+    
+    // Create low-res caustic canvas (1/4 resolution for free blur effect)
+    causticCanvas = document.createElement('canvas');
+    causticCanvas.width = Math.ceil(width / 4);
+    causticCanvas.height = Math.ceil(height / 4);
 }
 
 function toggleUI() {
@@ -598,40 +602,35 @@ function drawBackground() {
     ctx.fillRect(0, 0, width, height);
     ctx.restore();
 
-    // Draw pre-rendered, blurred caustics
-    if (!causticCache) {
-        causticCache = document.createElement('canvas');
-        causticCache.width = width + 400; // Extra width for movement
-        causticCache.height = height;
-        const cCtx = causticCache.getContext('2d');
+    // Draw Caustics using low-res upscaling for performance-friendly "blur"
+    if (causticCanvas) {
+        const cCtx = causticCanvas.getContext('2d');
+        const cW = causticCanvas.width;
+        const cH = causticCanvas.height;
         
-        if (cCtx.filter !== undefined) {
-            cCtx.filter = 'blur(0px)'; // Heavy blur applied ONCE
-        }
-        
+        cCtx.clearRect(0, 0, cW, cH);
         cCtx.fillStyle = CONFIG.colors.caustic;
         
-        // Draw a static "wave" pattern
-        cCtx.beginPath();
-        for (let i = 0; i < 6; i++) {
-             let x = (width * 0.2 * i); 
-             cCtx.moveTo(x - 50, height);
-             cCtx.lineTo(x + 200, 0); // Angled shafts of light
-             cCtx.lineTo(x + 350, 0);
-             cCtx.lineTo(x + 250, height);
+        let time = Date.now() * 0.0005;
+        // Draw caustics on small canvas (coordinates scaled down)
+        for (let i = 0; i < 5; i++) {
+            cCtx.beginPath();
+            // Scale input coordinates by 0.25 (1/4)
+            let x = ((width * 0.2 * i) + Math.sin(time + i) * 50) * 0.25;
+            cCtx.moveTo(x - 25, cH);
+            cCtx.lineTo(x + 75, 0);
+            cCtx.lineTo(x + 125, 0);
+            cCtx.lineTo(x + 75, cH);
+            cCtx.fill();
         }
-        cCtx.fill();
+        
+        ctx.save();
+        ctx.globalCompositeOperation = 'overlay';
+        // Draw the small canvas scaled up to fit screen
+        // The linear interpolation during scaling acts as a blur
+        ctx.drawImage(causticCanvas, 0, 0, width, height);
+        ctx.restore();
     }
-
-    ctx.save();
-    ctx.globalCompositeOperation = 'overlay';
-    
-    // Animate the entire cached layer back and forth
-    let time = Date.now() * 0.0005;
-    let sway = Math.sin(time) * 50;
-    
-    ctx.drawImage(causticCache, sway - 50, 0);
-    ctx.restore();
 }
 
 function loop() {
