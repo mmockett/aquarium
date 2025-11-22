@@ -201,11 +201,11 @@ body, html {
 .fish-card {
     background: rgba(255, 255, 255, 0.9);
     border-radius: 12px;
-    padding: 10px;
-    min-width: 100px;
+    padding: 8px;
+    min-width: 90px;
     text-align: center;
     cursor: pointer;
-    transition: transform 0.2s, filter 0.2s;
+    transition: transform 0.2s, height 0.2s;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     position: relative;
     opacity: 0.8;
@@ -213,12 +213,36 @@ body, html {
     display: flex;
     flex-direction: column;
     align-items: center;
+    height: 80px; /* Default collapsed height */
+    justify-content: center;
+    overflow: hidden;
 }
 
 .fish-card:hover {
     transform: translateY(-10px);
     opacity: 1;
     z-index: 10;
+    height: 140px; /* Expanded height on hover */
+    justify-content: space-between;
+}
+
+.fish-card .fish-name, 
+.fish-card .fish-cost {
+    display: none; /* Hidden by default */
+}
+
+.fish-card:hover .fish-name,
+.fish-card:hover .fish-cost {
+    display: block; /* Show on hover */
+}
+
+/* Move predator badge logic */
+.fish-card .predator-badge {
+    display: none; /* Hidden in collapsed view */
+}
+
+.fish-card:hover .predator-badge {
+    display: flex; /* Show on hover */
 }
 
 .fish-card.locked {
@@ -256,13 +280,15 @@ body, html {
 }
 
 .fish-name {
-    font-size: 16px;
+    font-size: 14px;
     color: #333;
     font-weight: bold;
+    line-height: 1.2;
+    margin-top: 4px;
 }
 
 .fish-cost {
-    font-size: 14px;
+    font-size: 12px;
     color: #666;
 }
 
@@ -501,4 +527,3 @@ body.ui-hidden .ui-toggle-btn:hover {
         content: attr(data-icon);
     }
 }
-
