@@ -23,6 +23,12 @@ let mousePos = { x: -9999, y: -9999 };
 let deadCount = 0;
 let idleTimer = null;
 let frameCount = 0;
+let backgroundImage = null;
+let bgCache = null;
+let weedImages = [];
+const WEED_FILES = ['assets/weeds/Weeds.png', 'assets/weeds/Weeds 2.png', 'assets/weeds/Weed 3.png'];
+let weedInstances = [];
+let weedCanvases = []; // Cache for pre-blurred weeds
 
 const sound = new SoundManager();
 const spatialGrid = new SpatialHash(150);
@@ -56,6 +62,31 @@ function init() {
     document.querySelector('.close-help').addEventListener('click', UI.toggleHelp);
     document.querySelector('.restart-btn').addEventListener('click', restartGame);
 
+    // Load background image
+    backgroundImage = new Image();
+    backgroundImage.src = 'assets/Background.jpg';
+    backgroundImage.onerror = () => {
+        console.warn('Background image failed to load');
+        backgroundImage = null;
+    };
+
+    // Load weeds
+    WEED_FILES.forEach(src => {
+        const img = new Image();
+        img.src = src;
+        weedImages.push(img);
+    });
+    
+    // Generate weeds
+    for(let i=0; i<8; i++) {
+        weedInstances.push({
+            imgIndex: Math.floor(Math.random() * WEED_FILES.length),
+            xRatio: Math.random(),
+            scale: 0.25 + Math.random() * 0.25, // Reduced to 50% of previous (0.5-1.0 -> 0.25-0.5)
+            speed: 0.0005 + Math.random() * 0.0005,
+            phase: Math.random() * Math.PI * 2
+        });
+    }
 
     // Try to load game, otherwise initialize default
     if (!loadGame()) {
@@ -70,6 +101,7 @@ function init() {
     setInterval(() => {
         score += fishes.length;
         UI.updateScore(score);
+        UI.updateFishCounts(fishes); // Update counts periodically
         saveGame(); // Autosave
     }, 3000);
 
@@ -169,6 +201,7 @@ function resize() {
     height = window.innerHeight;
     canvas.width = width;
     canvas.height = height;
+    bgCache = null; // Invalidate background cache on resize
 }
 
 function toggleUI() {
@@ -291,18 +324,52 @@ function initShop() {
                 el.appendChild(badge);
             }
 
-            const canvas = document.createElement('canvas');
-            canvas.width = 60;
-            canvas.height = 40;
-            canvas.className = 'fish-preview-canvas';
-            canvas.id = `preview-${s.id}`;
+            const previewContainer = document.createElement('div');
+            previewContainer.style.height = '40px';
+            previewContainer.style.display = 'flex';
+            previewContainer.style.alignItems = 'center';
+            previewContainer.style.justifyContent = 'center';
+            previewContainer.style.marginBottom = '5px';
+
+            if (s.imagePath) {
+                const img = new Image();
+                img.src = `${s.imagePath}/Thumbnail.png`;
+                img.style.maxWidth = '80px';
+                img.style.maxHeight = '50px';
+                img.style.objectFit = 'contain';
+                
+                img.onerror = () => {
+                    img.remove();
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 60;
+                    canvas.height = 40;
+                    canvas.className = 'fish-preview-canvas';
+                    canvas.id = `preview-${s.id}`;
+                    previewContainer.appendChild(canvas);
+                    renderSingleShopIcon(s);
+                };
+                previewContainer.appendChild(img);
+            } else {
+                const canvas = document.createElement('canvas');
+                canvas.width = 60;
+                canvas.height = 40;
+                canvas.className = 'fish-preview-canvas';
+                canvas.id = `preview-${s.id}`;
+                previewContainer.appendChild(canvas);
+            }
             
-            el.appendChild(canvas);
+            el.appendChild(previewContainer);
             
             const nameEl = document.createElement('div');
             nameEl.className = 'fish-name';
             nameEl.innerText = s.name;
             el.appendChild(nameEl);
+
+            const countEl = document.createElement('div');
+            countEl.className = 'fish-count';
+            countEl.id = `count-${s.id}`;
+            countEl.innerText = `0 alive`;
+            el.appendChild(countEl);
         } else {
             // Locked / Mysterious State
             const mysteryIcon = document.createElement('div');
@@ -325,6 +392,12 @@ function initShop() {
             nameEl.className = 'fish-name';
             nameEl.innerText = "Unknown";
             el.appendChild(nameEl);
+
+            const countEl = document.createElement('div');
+            countEl.className = 'fish-count';
+            countEl.id = `count-${s.id}`;
+            countEl.innerText = `0 alive`;
+            el.appendChild(countEl);
         }
         
         const costEl = document.createElement('div');
@@ -340,24 +413,28 @@ function initShop() {
     updateShopUI();
 }
 
+function renderSingleShopIcon(s) {
+    const canvas = document.getElementById(`preview-${s.id}`);
+    if (!canvas) return; 
+    
+    const pCtx = canvas.getContext('2d');
+    
+    // Create a dummy fish just for drawing
+    const dummy = new Fish(s, false, 100, 100);
+    dummy.pos.x = 30;
+    dummy.pos.y = 20;
+    dummy.size = Math.min(s.size, 15); 
+    dummy.angle = 0;
+    
+    pCtx.clearRect(0, 0, 60, 40);
+    dummy.draw(pCtx, false);
+}
+
 function renderShopIcons() {
     SPECIES.forEach(s => {
         // Only render preview if unlocked
         if (unlockedSpecies.has(s.id)) {
-            const canvas = document.getElementById(`preview-${s.id}`);
-            if (!canvas) return; 
-            
-            const pCtx = canvas.getContext('2d');
-            
-            // Create a dummy fish just for drawing
-            const dummy = new Fish(s, false, 100, 100);
-            dummy.pos.x = 30;
-            dummy.pos.y = 20;
-            dummy.size = Math.min(s.size, 15); 
-            dummy.angle = 0;
-            
-            pCtx.clearRect(0, 0, 60, 40);
-            dummy.draw(pCtx, false);
+            renderSingleShopIcon(s);
         }
     });
 }
@@ -383,6 +460,8 @@ function buyFish(species) {
         f.pos.x = width / 2;
         f.pos.y = height / 2;
         fishes.push(f);
+        
+        UI.updateFishCounts(fishes); // Update immediately on purchase
         
         ripples.push(new Ripple(width/2, height/2));
     }
@@ -428,17 +507,95 @@ function restartGame() {
     document.getElementById('restartOverlay').classList.remove('show');
     
     updateShopUI();
+    UI.updateFishCounts(fishes); // Update on restart
 }
 
 function drawBackground() {
+    // Draw background image first (if loaded) using Cache
+    if (backgroundImage && backgroundImage.complete && backgroundImage.naturalWidth > 0) {
+        // Create/Update Cache if needed
+        if (!bgCache) {
+            bgCache = document.createElement('canvas');
+            bgCache.width = width;
+            bgCache.height = height;
+            const bCtx = bgCache.getContext('2d');
+            
+            // Pre-apply blur to the cache
+            bCtx.filter = 'blur(7px)';
+            
+            // Calculate scaling to cover the canvas while maintaining aspect ratio
+            const imgAspect = backgroundImage.width / backgroundImage.height;
+            const canvasAspect = width / height;
+            let drawWidth, drawHeight, drawX, drawY;
+            
+            if (imgAspect > canvasAspect) {
+                drawHeight = height;
+                drawWidth = height * imgAspect;
+                drawX = (width - drawWidth) / 2;
+                drawY = 0;
+            } else {
+                drawWidth = width;
+                drawHeight = width / imgAspect;
+                drawX = 0;
+                drawY = (height - drawHeight) / 2;
+            }
+            
+            bCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight);
+        }
+        
+        // Draw the cached, pre-blurred background (FAST)
+        ctx.drawImage(bgCache, 0, 0);
+    }
+    
+    // Draw animated weeds (Pre-blurred)
+    const now = Date.now();
+    weedInstances.forEach(w => {
+        const img = weedImages[w.imgIndex];
+        if (img && img.complete && img.naturalWidth > 0) {
+             // Check if we have a pre-blurred cache for this weed species
+             if (!weedCanvases[w.imgIndex]) {
+                 const wc = document.createElement('canvas');
+                 const pad = 20; // Padding to avoid clipping the blur
+                 wc.width = img.width + pad;
+                 wc.height = img.height + pad;
+                 const wCtx = wc.getContext('2d');
+                 
+                 wCtx.filter = 'blur(6px)';
+                 // Draw centered with padding
+                 wCtx.drawImage(img, pad/2, pad/2);
+                 weedCanvases[w.imgIndex] = wc;
+             }
+             
+             const cached = weedCanvases[w.imgIndex];
+             const x = w.xRatio * width;
+             const y = height + 50; 
+             const sway = Math.sin(now * w.speed + w.phase) * 0.06;
+             
+             ctx.save();
+             ctx.translate(x, y);
+             ctx.rotate(sway);
+             // Draw the pre-blurred cache
+             ctx.drawImage(cached, -cached.width*w.scale/2, -cached.height*w.scale, cached.width*w.scale, cached.height*w.scale);
+             ctx.restore();
+        }
+    });
+    
+    // Overlay gradient on top with reduced opacity
+    ctx.save();
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = 0.8; // Reduced opacity so image shows through more clearly
     let grad = ctx.createLinearGradient(0, 0, 0, height);
     grad.addColorStop(0, CONFIG.colors.waterTop);
     grad.addColorStop(1, CONFIG.colors.waterBottom);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
+    ctx.restore();
 
     ctx.save();
     ctx.globalCompositeOperation = 'overlay';
+    ctx.filter = 'blur(4px)'; // Blur caustics to soften the lines
+
     ctx.fillStyle = CONFIG.colors.caustic;
     let time = Date.now() * 0.0005;
     for (let i = 0; i < 5; i++) {
@@ -450,16 +607,6 @@ function drawBackground() {
         ctx.lineTo(x + 300, height);
         ctx.fill();
     }
-    ctx.restore();
-
-    ctx.save();
-    ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(width, 0);
-    ctx.lineTo(width * 0.8, height);
-    ctx.lineTo(width * 0.2, height);
-    ctx.fill();
     ctx.restore();
 }
 
@@ -559,6 +706,7 @@ function loop() {
             sound.playDeathToll();
             UI.addToGraveyard(fish, ++deadCount);
             fishes.splice(index, 1);
+            UI.updateFishCounts(fishes); // Update on death
         }
     });
     
@@ -568,6 +716,7 @@ function loop() {
             sound.playDeathToll();
             UI.addToGraveyard(fish, ++deadCount); 
             fishes.splice(index, 1);
+            UI.updateFishCounts(fishes); // Update on eaten
         }
     });
     

@@ -285,6 +285,18 @@ body, html {
     font-weight: bold;
     line-height: 1.2;
     margin-top: 4px;
+    margin-bottom: 2px;
+}
+
+.fish-count {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 2px;
+    display: none; /* Hidden by default like other details */
+}
+
+.fish-card:hover .fish-count {
+    display: block;
 }
 
 .fish-cost {

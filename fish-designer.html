@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fish Designer</title>
+    <link rel="stylesheet" href="css/fish-designer.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="toolbar">
+        <h2>Fish Designer</h2>
+        <div class="control-group">
+            <label>Species Folder</label>
+            <input type="text" id="folderPath" value="assets/fish/River Spirit">
+            <button id="loadBtn">Load Images</button>
+        </div>
+        
+        <div class="layer-list" id="layerList">
+            <!-- Layers will be generated here -->
+        </div>
+
+        <div class="selected-controls" id="selectedControls" style="display:none;">
+            <h3>Selected: <span id="selectedName">None</span></h3>
+            
+            <div class="control-row">
+                <label>X:</label>
+                <input type="number" id="posX" step="1">
+            </div>
+            <div class="control-row">
+                <label>Y:</label>
+                <input type="number" id="posY" step="1">
+            </div>
+            <div class="control-row">
+                <label>Scale:</label>
+                <input type="number" id="scale" step="0.1" value="1">
+            </div>
+            <div class="control-row">
+                <label>Z-Index:</label>
+                <input type="number" id="zIndex" step="1" value="0">
+            </div>
+            <div class="control-row">
+                <label>Flip Vertical:</label>
+                <input type="checkbox" id="flipY">
+            </div>
+            <div class="control-row">
+                <label>Pivot X (Green):</label>
+                <input type="number" id="pivotX" step="1" value="0">
+            </div>
+            <div class="control-row">
+                <label>Pivot Y (Green):</label>
+                <input type="number" id="pivotY" step="1" value="0">
+            </div>
+        </div>
+
+        <button id="exportBtn" class="primary-btn">Export JSON</button>
+        <textarea id="output" readonly></textarea>
+    </div>
+
+    <div class="workspace">
+        <div class="canvas-container">
+            <div class="center-marker"></div>
+            <div id="fishContainer" class="fish-container">
+                <!-- Fish parts will be added here -->
+            </div>
+        </div>
+        <div class="help-text">
+            Drag parts to move. Scroll to zoom workspace. <br>
+            Green dot = Animation Pivot Point (Relative to image center).
+        </div>
+    </div>
+
+    <script type="module" src="js/fish-designer.js"></script>
+</body>
+</html>
