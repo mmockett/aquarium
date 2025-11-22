@@ -1,25 +1,25 @@
 {
   "body": {
-    "x": 1,
+    "x": 0,
     "y": 0,
     "scale": 1,
-    "zIndex": 10,
+    "zIndex": 4,
     "flipY": false,
     "pivotX": 0,
     "pivotY": 0
   },
   "tail": {
-    "x": 98,
+    "x": 100,
     "y": -1,
-    "scale": 0.9,
-    "zIndex": 11,
+    "scale": 1,
+    "zIndex": 12,
     "flipY": false,
     "pivotX": 0,
     "pivotY": 0
   },
   "dorsalFin": {
-    "x": 27,
-    "y": -35,
+    "x": 26,
+    "y": -37,
     "scale": 1,
     "zIndex": 8,
     "flipY": false,
@@ -28,7 +28,7 @@
   },
   "pectoralFin1": {
     "x": -19,
-    "y": 27,
+    "y": 29,
     "scale": 1,
     "zIndex": 12,
     "flipY": false,
@@ -36,8 +36,8 @@
     "pivotY": 0
   },
   "pectoralFin2": {
-    "x": 20,
-    "y": 20,
+    "x": 29,
+    "y": 29,
     "scale": 1,
     "zIndex": 4,
     "flipY": false,
@@ -45,19 +45,19 @@
     "pivotY": 0
   },
   "pelvicFin1": {
-    "x": -25,
-    "y": 36,
+    "x": -29,
+    "y": 37,
     "scale": 1,
-    "zIndex": 8,
+    "zIndex": 1,
     "flipY": false,
     "pivotX": 0,
     "pivotY": 0
   },
   "pelvicFin2": {
-    "x": 22,
+    "x": 26,
     "y": 36,
     "scale": 1,
-    "zIndex": 6,
+    "zIndex": 2,
     "flipY": false,
     "pivotX": 0,
     "pivotY": 0
