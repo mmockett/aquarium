@@ -215,6 +215,7 @@ export class Fish {
         let ali = new Vector(0, 0);
         let coh = new Vector(0, 0);
         let sepCount = 0, aliCount = 0, cohCount = 0;
+        this.isFleeing = false; // Reset flee state
         
         const desiredSeparationSq = (40 + this.size)**2;
         const neighborDistSq = 100**2;
@@ -308,20 +309,21 @@ export class Fish {
         } else {
              this.tantrumTarget = null;
              
+             // Use reduced weights for smoother flocking
              if (sepCount > 0) {
                 sep.div(sepCount); sep.normalize(); sep.mult(this.maxSpeed); sep.sub(this.vel); sep.limit(this.maxForce * 2.0);
-                this.acc.add(sep.mult(1.5));
+                this.acc.add(sep.mult(1.2)); // Reduced from 1.5
             }
             if (aliCount > 0) {
                 ali.div(aliCount); ali.normalize(); ali.mult(this.maxSpeed); ali.sub(this.vel); ali.limit(this.maxForce);
-                this.acc.add(ali.mult(1.0));
+                this.acc.add(ali.mult(0.8)); // Reduced from 1.0
             }
             if (cohCount > 0) {
                 coh.div(cohCount);
                 let desired = Vector.sub(coh, this.pos);
                 desired.normalize(); desired.mult(this.maxSpeed);
                 let steer = Vector.sub(desired, this.vel); steer.limit(this.maxForce);
-                this.acc.add(steer.mult(1.0));
+                this.acc.add(steer.mult(0.8)); // Reduced from 1.0
             }
 
             if (amPredator && closestPrey) {
@@ -337,8 +339,9 @@ export class Fish {
 
         if (amPrey && (fleeVector.x !== 0 || fleeVector.y !== 0)) {
             if (Date.now() - this.lastAteTime < 20000) {
+                this.isFleeing = true; // Mark as fleeing for burst speed
                 fleeVector.normalize();
-                fleeVector.mult(this.maxSpeed * 2.0); 
+                fleeVector.mult(this.maxSpeed * 2.5); // Increased from 2.0
                 let steer = Vector.sub(fleeVector, this.vel);
                 steer.limit(this.maxForce * 3.0);
                 this.acc.add(steer);
@@ -364,7 +367,8 @@ export class Fish {
                 this.fullCooldown -= 16.6; // Approx 60fps frame time
             }
 
-            if (frameCount % 60 === 0) {
+            // Only check mating logic every 120 frames (approx 2 seconds) instead of 60
+            if (frameCount % 120 === 0) {
                 let mateChance = 0.02; 
                 if (this.species.isPredator) mateChance = 0.002; 
 
@@ -377,7 +381,9 @@ export class Fish {
                          Date.now() - this.lastReproductionTime > minCooldown && 
                          this.energy >= 80) {
                          
-                         let potentialMate = world.fishes.find(other => 
+                         // Optimized: Use spatial grid for mate finding instead of iterating all fish
+                         const nearby = world.spatialGrid.getNearby(this);
+                         let potentialMate = nearby.find(other => 
                             other !== this && 
                             other.species.id === this.species.id && 
                             other.energy >= 80 && 
@@ -464,14 +470,15 @@ export class Fish {
         }
 
         if (target) {
-            this.seek(target);
+            this.seek(target, 2.5); // Burst speed for food
         } else if (this.romanceTarget) {
             this.seek(this.romanceTarget.pos);
             if (distSq(this.pos.x, this.pos.y, this.romanceTarget.pos.x, this.romanceTarget.pos.y) < (this.size + this.romanceTarget.size)**2) {
                  this.reproduce(this.romanceTarget, world);
             }
         } else {
-            if (frameCount % 3 === this.aiOffset) {
+            // Only compute complex behaviors every 5 frames instead of 3
+            if (frameCount % 5 === this.aiOffset) {
                 this.computeBehaviors(world);
                 this.wander(); 
                 this.boundaries(world.width, world.height);
@@ -491,7 +498,13 @@ export class Fish {
         speedMod *= energyFactor;
         speedMod *= this.digestionSlowdown;
 
-        this.vel.limit(this.maxSpeed * (target ? 1.5 : 1) * speedMod);
+        // Allow burst speed for Urgent behaviors (Feeding, Fleeing, Hunting, Fighting)
+        let burst = 1.0;
+        if (target || this.isFleeing || this.huntingTarget || this.tantrumTarget) {
+            burst = 2.5;
+        }
+
+        this.vel.limit(this.maxSpeed * burst * speedMod);
         this.pos.add(this.vel);
         
         this.acc.mult(0); 
@@ -514,10 +527,10 @@ export class Fish {
         return 'alive';
     }
 
-    seek(target) {
+    seek(target, speedMult = 1.0) {
         let desired = new Vector(target.x - this.pos.x, target.y - this.pos.y);
         desired.normalize();
-        desired.mult(this.maxSpeed);
+        desired.mult(this.maxSpeed * speedMult);
         let steer = Vector.sub(desired, this.vel);
         steer.limit(this.maxForce);
         this.acc.add(steer);

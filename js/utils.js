@@ -104,3 +104,63 @@ export async function callGemini(prompt) {
     return null;
 }
 
+// Simple Box Blur for legacy support (iOS < 16 etc)
+// Based on Quasimondo's StackBlur (simplified)
+export function applyManualBlur(ctx, width, height, radius) {
+    if (radius < 1) return;
+    
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const pixels = imageData.data;
+    
+    // Horizontal pass
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            let r = 0, g = 0, b = 0, a = 0;
+            let count = 0;
+            
+            for (let k = -radius; k <= radius; k++) {
+                const px = Math.min(width - 1, Math.max(0, x + k));
+                const idx = (y * width + px) * 4;
+                r += pixels[idx];
+                g += pixels[idx + 1];
+                b += pixels[idx + 2];
+                a += pixels[idx + 3];
+                count++;
+            }
+            
+            const idx = (y * width + x) * 4;
+            pixels[idx] = r / count;
+            pixels[idx + 1] = g / count;
+            pixels[idx + 2] = b / count;
+            pixels[idx + 3] = a / count;
+        }
+    }
+    
+    // Vertical pass
+    const temp = new Uint8ClampedArray(pixels);
+    for (let x = 0; x < width; x++) {
+        for (let y = 0; y < height; y++) {
+            let r = 0, g = 0, b = 0, a = 0;
+            let count = 0;
+            
+            for (let k = -radius; k <= radius; k++) {
+                const py = Math.min(height - 1, Math.max(0, y + k));
+                const idx = (py * width + x) * 4;
+                r += temp[idx];
+                g += temp[idx + 1];
+                b += temp[idx + 2];
+                a += temp[idx + 3];
+                count++;
+            }
+            
+            const idx = (y * width + x) * 4;
+            pixels[idx] = r / count;
+            pixels[idx + 1] = g / count;
+            pixels[idx + 2] = b / count;
+            pixels[idx + 3] = a / count;
+        }
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+}
+
