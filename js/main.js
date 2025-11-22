@@ -15,6 +15,7 @@ let particles = [];
 let fishes = [];
 let ripples = [];
 let lastTime = 0;
+let lastAutoFeedTime = 0;
 let isTalkMode = false;
 let isAutoFeed = false;
 let autoFeedTimer = null;
@@ -75,9 +76,12 @@ function resetIdleTimer() {
     const el = document.getElementById('idlePrompt');
     if(el) el.style.opacity = 0;
     
-    idleTimer = setTimeout(() => {
-        if(el) el.style.opacity = 1;
-    }, 60000);
+    // Only set idle timer if Auto Feed is OFF
+    if (!isAutoFeed) {
+        idleTimer = setTimeout(() => {
+            if(el) el.style.opacity = 1;
+        }, 60000);
+    }
 }
 
 function resize() {
@@ -114,17 +118,23 @@ function toggleAutoFeed() {
     if (isAutoFeed) {
         btn.classList.add('active');
         btn.innerText = "🍂 Auto Feed: ON";
+        // Reset timer so it feeds immediately
+        lastAutoFeedTime = 0;
         
-        autoFeedTimer = setInterval(() => {
-            if (particles.length < 200) {
-                particles.push(new Food(rand(50, width - 50), -10));
-                if(Math.random() < 0.1) sound.playBloop(2.0); 
-            }
-        }, 2000);
+        // Clear any existing idle prompt immediately
+        resetIdleTimer();
     } else {
         btn.classList.remove('active');
         btn.innerText = "🍂 Auto Feed: OFF";
+        
+        // Re-enable idle tracking
+        resetIdleTimer();
+    }
+    
+    // Clear legacy timer if it exists (cleanup)
+    if (autoFeedTimer) {
         clearInterval(autoFeedTimer);
+        autoFeedTimer = null;
     }
 }
 
@@ -360,6 +370,24 @@ function loop() {
     let now = Date.now();
     let dt = (now - lastTime) / 1000;
     lastTime = now;
+
+    // Auto Feed Logic (Dynamic Rate)
+    if (isAutoFeed) {
+        // Base rate: 0.1 pellets/sec. 
+        // Scale up with population: +0.08 pellets/sec per fish
+        // Average fish hunger cooldown is ~17s (random 5-30s).
+        // 0.08 pellets/sec = 1 pellet every 12.5s per fish, providing a slight surplus.
+        const rate = 0.1 + (fishes.length * 0.08); 
+        const interval = 1000 / rate;
+
+        if (now - lastAutoFeedTime > interval) {
+            if (particles.length < 200) {
+                particles.push(new Food(rand(50, width - 50), -10));
+                if(Math.random() < 0.1) sound.playBloop(2.0); 
+            }
+            lastAutoFeedTime = now;
+        }
+    }
 
     spatialGrid.clear();
     for(let f of fishes) {
