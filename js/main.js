@@ -1,5 +1,5 @@
 import { SoundManager } from './classes/SoundManager.js';
-import { SpatialHash, Vector, rand, distSq } from './utils.js';
+import { SpatialHash, Vector, rand, distSq, applyManualBlur } from './utils.js';
 import { Fish } from './classes/Fish.js';
 import { Food } from './classes/Food.js';
 import { Bubble } from './classes/Bubble.js';
@@ -526,11 +526,6 @@ function drawBackground() {
             bgCache.height = height;
             const bCtx = bgCache.getContext('2d');
             
-            // Pre-apply blur to the cache (Safety check for browser support)
-            if (bCtx.filter !== undefined) {
-                bCtx.filter = 'blur(7px)';
-            }
-            
             // Calculate scaling to cover the canvas while maintaining aspect ratio
             const imgAspect = backgroundImage.width / backgroundImage.height;
             const canvasAspect = width / height;
@@ -547,8 +542,15 @@ function drawBackground() {
                 drawX = 0;
                 drawY = (height - drawHeight) / 2;
             }
-            
-            bCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight);
+
+            // Apply blur (native or manual fallback)
+            if (bCtx.filter !== undefined) {
+                bCtx.filter = 'blur(7px)';
+                bCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight);
+            } else {
+                bCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight);
+                applyManualBlur(bCtx, width, height, 7);
+            }
         }
         
         // Draw the cached, pre-blurred background (FAST)
@@ -567,12 +569,15 @@ function drawBackground() {
                  wc.width = img.width + pad;
                  wc.height = img.height + pad;
                  const wCtx = wc.getContext('2d');
+                 wCtx.drawImage(img, pad/2, pad/2);
                  
                  if (wCtx.filter !== undefined) {
                     wCtx.filter = 'blur(6px)';
+                    wCtx.clearRect(0, 0, wc.width, wc.height);
+                    wCtx.drawImage(img, pad/2, pad/2);
+                 } else {
+                    applyManualBlur(wCtx, wc.width, wc.height, 6);
                  }
-                 // Draw centered with padding
-                 wCtx.drawImage(img, pad/2, pad/2);
                  weedCanvases[w.imgIndex] = wc;
              }
              
