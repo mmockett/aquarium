@@ -29,6 +29,7 @@ let weedImages = [];
 const WEED_FILES = ['assets/weeds/Weeds.png', 'assets/weeds/Weeds 2.png', 'assets/weeds/Weed 3.png'];
 let weedInstances = [];
 let weedCanvases = []; // Cache for pre-blurred weeds
+let causticCache = null; // Cache for pre-blurred caustics
 
 const sound = new SoundManager();
 const spatialGrid = new SpatialHash(150);
@@ -202,6 +203,7 @@ function resize() {
     canvas.width = width;
     canvas.height = height;
     bgCache = null; // Invalidate background cache on resize
+    causticCache = null; // Invalidate caustic cache on resize
 }
 
 function toggleUI() {
@@ -520,8 +522,10 @@ function drawBackground() {
             bgCache.height = height;
             const bCtx = bgCache.getContext('2d');
             
-            // Pre-apply blur to the cache
-            bCtx.filter = 'blur(7px)';
+            // Pre-apply blur to the cache (Safety check for browser support)
+            if (bCtx.filter !== undefined) {
+                bCtx.filter = 'blur(7px)';
+            }
             
             // Calculate scaling to cover the canvas while maintaining aspect ratio
             const imgAspect = backgroundImage.width / backgroundImage.height;
@@ -560,7 +564,9 @@ function drawBackground() {
                  wc.height = img.height + pad;
                  const wCtx = wc.getContext('2d');
                  
-                 wCtx.filter = 'blur(6px)';
+                 if (wCtx.filter !== undefined) {
+                    wCtx.filter = 'blur(6px)';
+                 }
                  // Draw centered with padding
                  wCtx.drawImage(img, pad/2, pad/2);
                  weedCanvases[w.imgIndex] = wc;
@@ -592,21 +598,39 @@ function drawBackground() {
     ctx.fillRect(0, 0, width, height);
     ctx.restore();
 
+    // Draw pre-rendered, blurred caustics
+    if (!causticCache) {
+        causticCache = document.createElement('canvas');
+        causticCache.width = width + 400; // Extra width for movement
+        causticCache.height = height;
+        const cCtx = causticCache.getContext('2d');
+        
+        if (cCtx.filter !== undefined) {
+            cCtx.filter = 'blur(0px)'; // Heavy blur applied ONCE
+        }
+        
+        cCtx.fillStyle = CONFIG.colors.caustic;
+        
+        // Draw a static "wave" pattern
+        cCtx.beginPath();
+        for (let i = 0; i < 6; i++) {
+             let x = (width * 0.2 * i); 
+             cCtx.moveTo(x - 50, height);
+             cCtx.lineTo(x + 200, 0); // Angled shafts of light
+             cCtx.lineTo(x + 350, 0);
+             cCtx.lineTo(x + 250, height);
+        }
+        cCtx.fill();
+    }
+
     ctx.save();
     ctx.globalCompositeOperation = 'overlay';
-    ctx.filter = 'blur(4px)'; // Blur caustics to soften the lines
-
-    ctx.fillStyle = CONFIG.colors.caustic;
+    
+    // Animate the entire cached layer back and forth
     let time = Date.now() * 0.0005;
-    for (let i = 0; i < 5; i++) {
-        ctx.beginPath();
-        let x = (width * 0.2 * i) + Math.sin(time + i) * 50;
-        ctx.moveTo(x - 100, height);
-        ctx.lineTo(x + 300, 0);
-        ctx.lineTo(x + 500, 0);
-        ctx.lineTo(x + 300, height);
-        ctx.fill();
-    }
+    let sway = Math.sin(time) * 50;
+    
+    ctx.drawImage(causticCache, sway - 50, 0);
     ctx.restore();
 }
 
