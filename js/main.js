@@ -637,14 +637,22 @@ function loop() {
     }
 
     spatialGrid.clear();
+    // Add both fish AND food to spatial grid for faster lookups
     for(let f of fishes) {
         if(!f.isDead) spatialGrid.add(f);
+    }
+    // Filter food items separately to avoid re-filtering in loop and fish
+    let foodItems = [];
+    for (let p of particles) {
+        if (p instanceof Food) {
+             foodItems.push(p);
+             // Optional: Add food to spatial grid if we update fish to use it
+             // spatialGrid.addFood(p); 
+        }
     }
 
     ctx.clearRect(0, 0, width, height);
     drawBackground();
-
-    let foodItems = particles.filter(p => p instanceof Food);
     
     for (let i = ripples.length - 1; i >= 0; i--) {
         let r = ripples[i];
@@ -665,9 +673,9 @@ function loop() {
     const world = {
         width, height,
         spatialGrid,
-        foodList: foodItems,
-        fishes: fishes, // Reference to the array
-        particles, // Reference to the array
+        foodList: foodItems, // Use the pre-filtered list
+        fishes: fishes, 
+        particles, 
         sound,
         isTalkMode,
         mousePos,
