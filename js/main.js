@@ -202,6 +202,15 @@ function initShop() {
             mysteryIcon.innerText = '?';
             el.appendChild(mysteryIcon);
 
+            // Still show predator badge if it's a predator (safety warning!)
+            if (s.isPredator) {
+                const badge = document.createElement('div');
+                badge.className = 'predator-badge';
+                badge.innerHTML = '⚠️'; 
+                badge.title = 'Aggressive Predator';
+                el.appendChild(badge);
+            }
+
             const nameEl = document.createElement('div');
             nameEl.className = 'fish-name';
             nameEl.innerText = "Unknown";
