@@ -785,8 +785,6 @@ export class Fish {
         ctx.restore();
     }
 
-    // drawVectorBased removed for cleanup and performance
-
     drawImageBased(ctx, world) {
         // Load fish parts (assuming imagePath is the base folder path)
         const parts = loadFishParts(this.species.imagePath);
@@ -811,14 +809,10 @@ export class Fish {
             pelvicFin2: { x: 10, y: 39, scale: 1.0, zIndex: 2, flipY: false, pivotX: 10, pivotY: -10 }
         };
 
-        // Apply interpolated night dimming
-        let alpha = world.fishAlpha;
-        if (this.species.id === 'rainbow') alpha = 1.0;
-
         if (this.isDead) {
             ctx.globalAlpha = 0.6;
         } else {
-            ctx.globalAlpha = alpha;
+            ctx.globalAlpha = 1.0;
         }
 
         // Rainbow Glow Effect moved to render after fish parts (in front)
