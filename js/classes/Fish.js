@@ -513,7 +513,7 @@ export class Fish {
         if (target || this.isFleeing || this.huntingTarget || this.tantrumTarget) {
             burst = 2.5;
         } else if (this.isSleeping) {
-            burst = 0.2; // Very slow when sleeping
+            burst = 0.1; // Very slow when sleeping (10% speed)
         }
 
         this.vel.limit(this.maxSpeed * burst * speedMod);
@@ -526,7 +526,13 @@ export class Fish {
         if (this.pos.y < this.size) { this.pos.y = this.size; this.vel.y *= -0.8; }
         if (this.pos.y > world.height - this.size) { this.pos.y = world.height - this.size; this.vel.y *= -0.8; }
         
-        let desiredAngle = Math.atan2(this.vel.y, this.vel.x);
+        let desiredAngle;
+        if (this.isSleeping) {
+             // When sleeping, just face horizontally, maybe slightly tilted
+             desiredAngle = this.facingLeft ? Math.PI : 0;
+        } else {
+             desiredAngle = Math.atan2(this.vel.y, this.vel.x);
+        }
         let diff = desiredAngle - this.angle;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
@@ -576,12 +582,6 @@ export class Fish {
         driftForce.x += Math.sin(t) * 0.05;
         
         this.acc.add(driftForce);
-        
-        // Dampen velocity more aggressively to simulate 10% speed
-        // Normal friction is implicitly handled by velocity updates, but here we clamp
-        if (this.vel.mag() > this.maxSpeed * 0.1) {
-            this.vel.setMag(this.maxSpeed * 0.1);
-        }
     }
 
     boundaries(width, height) {
@@ -809,10 +809,19 @@ export class Fish {
             pelvicFin2: { x: 10, y: 39, scale: 1.0, zIndex: 2, flipY: false, pivotX: 10, pivotY: -10 }
         };
 
+        // Apply night dimming (alpha reduction)
+        // Rainbow Spirit stays fully visible (alpha 1.0)
+        // Others fade down to 0.8 opacity at peak night
+        let targetAlpha = 1.0;
+        if (this.species.id !== 'rainbow' && !this.isDead) {
+            // Interpolate from 1.0 down to 0.8 based on nightFade (0 to 1)
+            targetAlpha = 1.0 - (world.nightFade * 0.2); 
+        }
+
         if (this.isDead) {
             ctx.globalAlpha = 0.6;
         } else {
-            ctx.globalAlpha = 1.0;
+            ctx.globalAlpha = targetAlpha;
         }
 
         // Rainbow Glow Effect moved to render after fish parts (in front)
