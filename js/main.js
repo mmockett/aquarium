@@ -87,9 +87,14 @@ function init() {
     
     // Debug Buttons
     document.getElementById('fullResetBtn').addEventListener('click', () => {
-        if(confirm("Are you sure? This will delete all save data and reload the page.")) {
+        if(confirm("Are you sure? This will delete all save data and reset the aquarium.")) {
             localStorage.clear();
-            location.reload();
+            restartGame();
+            // Reset score to 100 (default start)
+            score = 100;
+            UI.updateScore(score);
+            updateShopUI();
+            UI.showToast("Game Reset!");
         }
     });
     
@@ -576,7 +581,7 @@ function checkGameOver() {
 }
 
 function restartGame() {
-    score = 0;
+    score = 100; // Reset to 100 Orbs
     fishes = [];
     particles = [];
     ripples = [];
@@ -588,7 +593,8 @@ function restartGame() {
     const list = document.getElementById('graveyardList');
     list.innerHTML = '';
     
-    fishes.push(new Fish(SPECIES[0], false, width, height));
+    // Remove all fish, start with zero
+    // fishes.push(new Fish(SPECIES[0], false, width, height));
     
     document.getElementById('restartOverlay').classList.remove('show');
     
