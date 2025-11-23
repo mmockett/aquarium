@@ -489,7 +489,7 @@ function renderSingleShopIcon(s) {
     
     // If images are cached, this will draw immediately. 
     // If not, it might draw nothing, but the static Thumbnail.png should exist now.
-    dummy.draw(pCtx, { isTalkMode: false, mousePos: null, fishAlpha: 1.0, now: Date.now() });
+    dummy.draw(pCtx, { isTalkMode: false, mousePos: null, now: Date.now() });
 }
 
 function renderShopIcons() {
@@ -645,13 +645,11 @@ function drawBackground() {
             const blCtx = blurCanvas.getContext('2d');
             
             // Draw the image onto the blur canvas
-            blCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight); // FIXED: Draw from source image, not bgCache which is empty
-
-            // Apply strong blur to this canvas (7px)
             if (blCtx.filter !== undefined) {
                 blCtx.filter = 'blur(7px)';
                 blCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight);
             } else {
+                blCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight);
                 applyManualBlur(blCtx, width, height, 7);
             }
 
@@ -661,12 +659,11 @@ function drawBackground() {
             lightBlurCanvas.height = height;
             const lbCtx = lightBlurCanvas.getContext('2d');
 
-            lbCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight); // FIXED: Draw from source image
-
             if (lbCtx.filter !== undefined) {
                 lbCtx.filter = 'blur(4px)';
                 lbCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight);
             } else {
+                lbCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight);
                 applyManualBlur(lbCtx, width, height, 3);
             }
 
@@ -714,13 +711,11 @@ function drawBackground() {
                  wc.width = img.width + pad;
                  wc.height = img.height + pad;
                  const wCtx = wc.getContext('2d');
-                 wCtx.drawImage(img, pad/2, pad/2);
-                 
                  if (wCtx.filter !== undefined) {
                     wCtx.filter = 'blur(6px)';
-                    wCtx.clearRect(0, 0, wc.width, wc.height);
                     wCtx.drawImage(img, pad/2, pad/2);
                  } else {
+                    wCtx.drawImage(img, pad/2, pad/2);
                     applyManualBlur(wCtx, wc.width, wc.height, 6);
                  }
                  weedCanvases[w.imgIndex] = wc;
@@ -903,31 +898,6 @@ function updateTimeCycle(dt) {
 
     currentColors.caustic = lerpRGBA(phase.caustic, nextPhase.caustic, t);
     currentColors.overlay = lerpRGBA(phase.overlay, nextPhase.overlay, t);
-
-    // Calculate fish opacity based on night darkness
-    // Default is 1.0. At peak night, it should be 0.8.
-    // We can use the overlay alpha as a proxy for "darkness", or just logic based on phase.
-    // Simpler: if phase is Night, alpha is 0.8. If transitioning to/from Night, lerp it.
-    
-    // Logic:
-    // Day/Dawn: 1.0
-    // Dusk -> Night: Lerp 1.0 -> 0.8
-    // Night -> Dawn: Lerp 0.8 -> 1.0
-    
-    let targetAlpha = 1.0;
-    if (phase === TC.dusk && nextPhase === TC.night) {
-        // Dusk -> Night (0.75 - 0.85)
-        targetAlpha = 1.0 - (t * 0.2); // 1.0 -> 0.8
-    } else if (phase === TC.night && nextPhase === TC.dawn) {
-        // Night -> Dawn (0.90 - 1.0)
-        targetAlpha = 0.8 + (t * 0.2); // 0.8 -> 1.0
-    } else if (phase === TC.night) {
-        // Full Night (0.85 - 0.90)
-        targetAlpha = 0.8;
-    } else {
-        targetAlpha = 1.0;
-    }
-    currentColors.fishAlpha = targetAlpha;
 }
 
 function loop() {
@@ -1001,7 +971,6 @@ function loop() {
     world.particles = particles;
     world.isTalkMode = isTalkMode;
     world.isNight = isNight;
-    world.fishAlpha = currentColors.fishAlpha || 1.0;
     world.mousePos = mousePos;
 
     fishes.forEach(fish => {
