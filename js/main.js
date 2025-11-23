@@ -469,9 +469,14 @@ function renderSingleShopIcon(s) {
     dummy.pos.y = 20;
     dummy.size = Math.min(s.size, 15); 
     dummy.angle = 0;
+    dummy.visualAngle = 0; // Ensure it faces right immediately
+    dummy.tailAngle = 0;   // Reset tail animation
     
     pCtx.clearRect(0, 0, 60, 40);
-    dummy.draw(pCtx, false);
+    
+    // If images are cached, this will draw immediately. 
+    // If not, it might draw nothing, but the static Thumbnail.png should exist now.
+    dummy.draw(pCtx, { isTalkMode: false, mousePos: null, fishAlpha: 1.0, now: Date.now() });
 }
 
 function renderShopIcons() {
