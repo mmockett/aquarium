@@ -168,12 +168,14 @@ body, html {
     background: transparent;
     padding: 20px;
     display: flex;
-    gap: 15px;
+    gap: 10px;
     overflow-x: auto;
     align-items: flex-end;
-    padding-bottom: 30px;
+    padding-bottom: 10px;
     padding-right: 280px; 
     scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 320px), transparent calc(100% - 300px));
+    mask-image: linear-gradient(to right, black calc(100% - 320px), transparent calc(100% - 300px));
 }
 
 .shop-container::-webkit-scrollbar {
@@ -252,19 +254,19 @@ body, html {
     -webkit-backdrop-filter: blur(5px);
     backdrop-filter: blur(5px);
     border: 1px solid rgba(255,255,255,0.3);
-    border-radius: 12px;
-    padding: 8px;
+    border-radius: 20px;
+    padding: 6px;
     min-width: 90px;
     text-align: center;
     cursor: pointer;
     transition: transform 0.2s, height 0.2s;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     position: relative;
-    opacity: 0.8;
+    opacity: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    height: 80px; /* Default collapsed height */
+    height: 60px; /* Default collapsed height */
     justify-content: center;
     overflow: hidden;
     color: #fff; /* White text for glass UI */
@@ -317,7 +319,7 @@ body, html {
     position: absolute;
     top: 5px;
     right: 5px;
-    background: #E74C3C;
+    background: rgba(255, 255, 255, 0.3);
     color: white;
     width: 22px;
     height: 22px;
@@ -326,7 +328,6 @@ body, html {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
     z-index: 20;
     cursor: help;
 }
@@ -340,7 +341,7 @@ body, html {
     color: #fff; /* White text */
     font-weight: bold;
     line-height: 1.2;
-    margin-top: 4px;
+    margin-top: 2px;
     margin-bottom: 2px;
     text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
@@ -581,7 +582,7 @@ body.ui-hidden .ui-toggle-btn:hover {
     background: rgba(255, 255, 255, 0.2);
 }
 
-@media (max-width: 660px) {
+@media (max-width: 700px) {
     .mode-btn {
         font-size: 0;
         padding: 10px;
