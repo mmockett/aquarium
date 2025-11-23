@@ -365,8 +365,8 @@ export class Fish {
                 this.fullCooldown -= 16.6; // Approx 60fps frame time
             }
 
-            // Check mating logic more frequently (every 60 frames ~ 1s) and increase range
-            if (frameCount % 60 === 0) {
+            // Check mating logic more frequently (every 120 frames ~ 2 seconds) and increase range
+            if (frameCount % 120 === 0) {
                 let mateChance = 0.05; 
                 if (this.species.isPredator) mateChance = 0.005; 
 
@@ -388,7 +388,7 @@ export class Fish {
                             other.energy >= 80 && 
                             world.now - other.birthTime > maturityAge && 
                             world.now - other.lastReproductionTime > minCooldown &&
-                            distSq(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 400**2 
+                            distSq(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 300**2 
                          );
                          if (potentialMate) this.romanceTarget = potentialMate;
                      }
