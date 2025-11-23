@@ -107,10 +107,18 @@ function init() {
     });
 
     // Load background image
+    const BACKGROUNDS = [
+        'assets/backgrounds/Background1.jpg',
+        'assets/backgrounds/Background2.jpg',
+        'assets/backgrounds/Background3.jpg',
+        'assets/backgrounds/Background4.jpg'
+    ];
+    
     backgroundImage = new Image();
-    backgroundImage.src = 'assets/Background.jpg';
+    const randomBg = BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)];
+    backgroundImage.src = randomBg;
     backgroundImage.onerror = () => {
-        console.warn('Background image failed to load');
+        console.warn(`Background image failed to load: ${randomBg}`);
         backgroundImage = null;
     };
 
@@ -629,14 +637,65 @@ function drawBackground() {
                 drawY = (height - drawHeight) / 2;
             }
 
-            // Apply blur (native or manual fallback)
-            if (bCtx.filter !== undefined) {
-                bCtx.filter = 'blur(7px)';
-                bCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight);
+            // Create a variable blur effect using a mask
+            // 1. Create a temporary canvas for the full blurred version
+            const blurCanvas = document.createElement('canvas');
+            blurCanvas.width = width;
+            blurCanvas.height = height;
+            const blCtx = blurCanvas.getContext('2d');
+            
+            // Draw the image onto the blur canvas
+            blCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight); // FIXED: Draw from source image, not bgCache which is empty
+
+            // Apply strong blur to this canvas (7px)
+            if (blCtx.filter !== undefined) {
+                blCtx.filter = 'blur(7px)';
+                blCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight);
             } else {
-                bCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight);
-                applyManualBlur(bCtx, width, height, 7);
+                applyManualBlur(blCtx, width, height, 7);
             }
+
+            // 2. Create a second temporary canvas for the lighter blur (3px)
+            const lightBlurCanvas = document.createElement('canvas');
+            lightBlurCanvas.width = width;
+            lightBlurCanvas.height = height;
+            const lbCtx = lightBlurCanvas.getContext('2d');
+
+            lbCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight); // FIXED: Draw from source image
+
+            if (lbCtx.filter !== undefined) {
+                lbCtx.filter = 'blur(4px)';
+                lbCtx.drawImage(backgroundImage, drawX, drawY, drawWidth, drawHeight);
+            } else {
+                applyManualBlur(lbCtx, width, height, 3);
+            }
+
+            // 3. Composite the gradient mask
+            const maskCanvas = document.createElement('canvas');
+            maskCanvas.width = width;
+            maskCanvas.height = height;
+            const mCtx = maskCanvas.getContext('2d');
+
+            // Gradient: Opaque at top (shows heavy blur), Transparent at bottom (shows underlying light blur)
+            const g = mCtx.createLinearGradient(0, 0, 0, height);
+            g.addColorStop(0, 'rgba(0,0,0,1)');
+            g.addColorStop(1, 'rgba(0,0,0,0)'); 
+            mCtx.fillStyle = g;
+            mCtx.fillRect(0, 0, width, height);
+
+            // Mask the heavy blur
+            blCtx.globalCompositeOperation = 'destination-in';
+            blCtx.drawImage(maskCanvas, 0, 0);
+
+            // 4. Final Composition into bgCache
+            // No need to clear bgCache as it was just created and empty
+            
+            // Draw the light blur (base)
+            bCtx.globalCompositeOperation = 'source-over';
+            bCtx.drawImage(lightBlurCanvas, 0, 0);
+            
+            // Draw the masked heavy blur on top
+            bCtx.drawImage(blurCanvas, 0, 0);
         }
         
         // Draw the cached, pre-blurred background (FAST)
