@@ -747,6 +747,15 @@ function drawBackground() {
     ctx.fillRect(0, 0, width, height);
     ctx.restore();
 
+    // Dark Blue Night Mask (20% opacity at peak night)
+    // This darkens everything BEHIND the Rainbow Spirit
+    if (world.nightFade > 0) {
+        ctx.save();
+        ctx.fillStyle = `rgba(0, 10, 40, ${world.nightFade * 0.4})`; // Max 40% darkness
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+    }
+
     // Draw Caustics using low-res upscaling for performance-friendly "blur"
     if (causticCanvas) {
         const cCtx = causticCanvas.getContext('2d');
@@ -898,6 +907,26 @@ function updateTimeCycle(dt) {
 
     currentColors.caustic = lerpRGBA(phase.caustic, nextPhase.caustic, t);
     currentColors.overlay = lerpRGBA(phase.overlay, nextPhase.overlay, t);
+    
+    // Determine night fade factor (0.0 to 1.0)
+    // 0.0 = Day (Full visibility)
+    // 1.0 = Peak Night (Maximum dimming)
+    let nightFade = 0;
+    if (phase === TC.dusk && nextPhase === TC.night) {
+        // Dusk -> Night: 0 -> 1
+        nightFade = t;
+    } else if (phase === TC.night && nextPhase === TC.dawn) {
+        // Night -> Dawn: 1 -> 0
+        nightFade = 1 - t;
+    } else if (phase === TC.night && nextPhase === TC.night) {
+        // Full Night
+        nightFade = 1.0;
+    } else if (phase === TC.night && nextPhase === TC.dawn) {
+        // Should be covered by above, but just in case
+        nightFade = 1.0; 
+    }
+    
+    currentColors.nightFade = nightFade;
 }
 
 function loop() {
@@ -971,6 +1000,7 @@ function loop() {
     world.particles = particles;
     world.isTalkMode = isTalkMode;
     world.isNight = isNight;
+    world.nightFade = currentColors.nightFade || 0;
     world.mousePos = mousePos;
 
     fishes.forEach(fish => {
