@@ -28,7 +28,16 @@ export function toggleHelp() {
 }
 
 export function updateScore(score) {
-    document.getElementById('scoreDisplay').innerText = Math.floor(score);
+    const val = Math.floor(score);
+    let displayVal = val.toString();
+    
+    if (val >= 1000000) {
+        displayVal = (val / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
+    } else if (val >= 10000) {
+        displayVal = (val / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    }
+    
+    document.getElementById('scoreDisplay').innerText = displayVal;
 }
 
 export function addToGraveyard(fish, deadCount) {

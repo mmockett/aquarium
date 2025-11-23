@@ -64,7 +64,8 @@ body, html {
     background: rgba(255, 255, 255, 0.2);
     -webkit-backdrop-filter: blur(5px);
     backdrop-filter: blur(5px);
-    padding: 10px 25px;
+    padding: 0 16px;
+    height: 44px; /* Fixed height to match buttons */
     border-radius: 50px;
     color: #fff;
     font-size: 24px;
