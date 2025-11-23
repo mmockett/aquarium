@@ -365,10 +365,10 @@ export class Fish {
                 this.fullCooldown -= 16.6; // Approx 60fps frame time
             }
 
-            // Only check mating logic every 120 frames (approx 2 seconds) instead of 60
-            if (frameCount % 120 === 0) {
-                let mateChance = 0.02; 
-                if (this.species.isPredator) mateChance = 0.002; 
+            // Check mating logic more frequently (every 60 frames ~ 1s) and increase range
+            if (frameCount % 60 === 0) {
+                let mateChance = 0.05; 
+                if (this.species.isPredator) mateChance = 0.005; 
 
                 if (Math.random() < mateChance && world.fishes.length <= 50) {
                      const maturityAge = 60 * 1000;
@@ -379,7 +379,8 @@ export class Fish {
                          world.now - this.lastReproductionTime > minCooldown && 
                          this.energy >= 80) {
                          
-                         // Optimized: Use spatial grid for mate finding instead of iterating all fish
+                         // Optimized: Use spatial grid for mate finding
+                         // Increased search radius for larger tanks
                          const nearby = world.spatialGrid.getNearby(this);
                          let potentialMate = nearby.find(other => 
                             other !== this && 
@@ -387,7 +388,7 @@ export class Fish {
                             other.energy >= 80 && 
                             world.now - other.birthTime > maturityAge && 
                             world.now - other.lastReproductionTime > minCooldown &&
-                            distSq(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 200**2 
+                            distSq(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 400**2 
                          );
                          if (potentialMate) this.romanceTarget = potentialMate;
                      }
@@ -576,8 +577,11 @@ export class Fish {
         
         this.acc.add(driftForce);
         
-        // Dampen velocity
-        this.vel.mult(0.95);
+        // Dampen velocity more aggressively to simulate 10% speed
+        // Normal friction is implicitly handled by velocity updates, but here we clamp
+        if (this.vel.mag() > this.maxSpeed * 0.1) {
+            this.vel.setMag(this.maxSpeed * 0.1);
+        }
     }
 
     boundaries(width, height) {
