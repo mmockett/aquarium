@@ -164,3 +164,18 @@ export function applyManualBlur(ctx, width, height, radius) {
     ctx.putImageData(imageData, 0, 0);
 }
 
+export function lerpColor(a, b, amount) { 
+    const ar = parseInt(a.substring(1, 3), 16);
+    const ag = parseInt(a.substring(3, 5), 16);
+    const ab = parseInt(a.substring(5, 7), 16);
+
+    const br = parseInt(b.substring(1, 3), 16);
+    const bg = parseInt(b.substring(3, 5), 16);
+    const bb = parseInt(b.substring(5, 7), 16);
+
+    const rr = Math.round(ar + amount * (br - ar));
+    const rg = Math.round(ag + amount * (bg - ag));
+    const rb = Math.round(ab + amount * (bb - ab));
+
+    return '#' + ((1 << 24) + (rr << 16) + (rg << 8) + rb).toString(16).slice(1);
+}

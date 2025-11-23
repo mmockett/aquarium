@@ -147,6 +147,7 @@ export class Fish {
         this.childrenCount = 0; // Track number of offspring
         this.facingLeft = this.vel.x < 0; // Track facing direction for smooth turns
         this.visualAngle = this.angle; // Decoupled visual rotation for smoothing
+        this.isSleeping = false;
 
         this.generateName();
     }
@@ -476,8 +477,19 @@ export class Fish {
         } else {
             // Only compute complex behaviors every 5 frames instead of 3
             if (frameCount % 5 === this.aiOffset) {
+                // Night Time Logic
+                if (world.isNight && !this.species.isPredator && !this.isFleeing && !this.romanceTarget && !target) {
+                    this.isSleeping = true;
+                } else {
+                    this.isSleeping = false;
+                }
+
                 this.computeBehaviors(world);
-                this.wander(world); 
+                if (this.isSleeping) {
+                    this.drift(world);
+                } else {
+                    this.wander(world);
+                }
                 this.boundaries(world.width, world.height);
             }
         }
@@ -499,6 +511,8 @@ export class Fish {
         let burst = 1.0;
         if (target || this.isFleeing || this.huntingTarget || this.tantrumTarget) {
             burst = 2.5;
+        } else if (this.isSleeping) {
+            burst = 0.2; // Very slow when sleeping
         }
 
         this.vel.limit(this.maxSpeed * burst * speedMod);
@@ -549,6 +563,21 @@ export class Fish {
         let h = Math.sin(t) * wanderR;
         let target = new Vector(circlePos.x + Math.cos(t)*20, circlePos.y + h);
         this.seek(target);
+    }
+
+    drift(world) {
+        // Sleepy drifting logic - tend towards bottom
+        let targetY = world.height * 0.85;
+        let driftForce = new Vector(0, (targetY - this.pos.y) * 0.001);
+        
+        // Gentle random movement
+        let t = world.now * 0.0005 + this.pos.x;
+        driftForce.x += Math.sin(t) * 0.05;
+        
+        this.acc.add(driftForce);
+        
+        // Dampen velocity
+        this.vel.mult(0.95);
     }
 
     boundaries(width, height) {
@@ -746,85 +775,13 @@ export class Fish {
             ctx.scale(1, -1);
         }
 
-        if (this.species.imagePath) {
-            this.drawImageBased(ctx, world);
-        } else {
-            this.drawVectorBased(ctx, world);
-        }
+        // Always use image-based drawing now
+        this.drawImageBased(ctx, world);
+        
         ctx.restore();
     }
 
-    drawVectorBased(ctx, world) {
-        let bodyColor = this.species.colorBody;
-        let finColor = this.species.colorFin;
-
-        if (this.isDead) {
-            ctx.globalAlpha = 0.6;
-            bodyColor = '#555';
-            finColor = '#333';
-        } else if (this.species.id === 'rainbow') {
-            const time = world.now * 0.002;
-            const grad = ctx.createLinearGradient(-this.size, 0, this.size, 0);
-            grad.addColorStop(0, `hsl(${(time * 50) % 360}, 100%, 50%)`);
-            grad.addColorStop(1, `hsl(${(time * 50 + 180) % 360}, 100%, 50%)`);
-            bodyColor = grad;
-            finColor = `hsl(${(time * 50 + 90) % 360}, 100%, 70%)`;
-        }
-
-        ctx.fillStyle = bodyColor;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, this.size, this.size * 0.6, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (this.isDead) {
-             ctx.strokeStyle = '#333';
-             ctx.lineWidth = 2;
-             ctx.beginPath();
-             ctx.moveTo(this.size*0.3, -this.size*0.3);
-             ctx.lineTo(this.size*0.5, -this.size*0.1);
-             ctx.moveTo(this.size*0.5, -this.size*0.3);
-             ctx.lineTo(this.size*0.3, -this.size*0.1);
-             ctx.stroke();
-        } else {
-            ctx.fillStyle = 'white';
-            ctx.beginPath();
-            ctx.arc(this.size * 0.4, -this.size * 0.2, this.size * 0.25, 0, Math.PI*2);
-            ctx.fill();
-            ctx.fillStyle = '#222';
-            ctx.beginPath();
-            ctx.arc(this.size * 0.5, -this.size * 0.2, this.size * 0.1, 0, Math.PI*2);
-            ctx.fill();
-        }
-
-        ctx.fillStyle = finColor;
-        let tailWag = this.isDead ? 0 : Math.sin(this.tailAngle) * (this.size * 0.5);
-        ctx.beginPath();
-        ctx.moveTo(-this.size * 0.8, 0);
-        if (this.species.finType === 'flowing') {
-            ctx.bezierCurveTo(-this.size * 1.5, tailWag, -this.size * 2.5, -this.size * 0.5 + tailWag, -this.size * 2.8, tailWag);
-            ctx.bezierCurveTo(-this.size * 2.5, this.size * 0.5 + tailWag, -this.size * 1.5, tailWag, -this.size * 0.8, 0);
-        } else {
-            ctx.lineTo(-this.size * 1.8, -this.size * 0.6 + tailWag);
-            ctx.lineTo(-this.size * 1.8, this.size * 0.6 + tailWag);
-        }
-        ctx.fill();
-
-        ctx.fillStyle = finColor; 
-        ctx.globalAlpha = this.isDead ? 0.4 : 0.8;
-        ctx.beginPath();
-        let finWag = this.isDead ? 0 : Math.cos(this.tailAngle) * 5;
-        ctx.moveTo(0, this.size * 0.3);
-        ctx.quadraticCurveTo(-this.size * 0.5, this.size + finWag, 0, this.size * 0.8);
-        ctx.fill();
-
-        if (this.species.finType !== 'simple') {
-            ctx.beginPath();
-            ctx.moveTo(0, -this.size * 0.5);
-            ctx.quadraticCurveTo(-this.size, -this.size * 1.2, this.size * 0.2, -this.size * 0.5);
-            ctx.fill();
-        }
-        ctx.globalAlpha = 1.0;
-    }
+    // drawVectorBased removed for cleanup and performance
 
     drawImageBased(ctx, world) {
         // Load fish parts (assuming imagePath is the base folder path)
@@ -832,8 +789,7 @@ export class Fish {
         
         // Check if body is loaded (use body as indicator)
         if (!parts.body || !parts.body.complete || parts.body.naturalWidth === 0) {
-            // Fallback to vector if images not loaded
-            this.drawVectorBased(ctx, world);
+            // Fallback if images fail to load (just don't draw or draw placeholder rect)
             return;
         }
 
@@ -851,9 +807,17 @@ export class Fish {
             pelvicFin2: { x: 10, y: 39, scale: 1.0, zIndex: 2, flipY: false, pivotX: 10, pivotY: -10 }
         };
 
+        // Apply interpolated night dimming
+        let alpha = world.fishAlpha;
+        if (this.species.id === 'rainbow') alpha = 1.0;
+
         if (this.isDead) {
             ctx.globalAlpha = 0.6;
+        } else {
+            ctx.globalAlpha = alpha;
         }
+
+        // Rainbow Glow Effect moved to render after fish parts (in front)
 
         // Fix orientation: The source images face Left, but standard angle 0 is Right.
         // Flip horizontally so the fish faces the direction of movement.
@@ -946,6 +910,29 @@ export class Fish {
             else rot = 0;
 
             drawPart(key, rot);
+        }
+
+        // Rainbow Glow Effect - Optimized (Radial Gradient)
+        // Rendered IN FRONT of the fish
+        if (this.species.id === 'rainbow' && !this.isDead) {
+            const time = world.now * 0.002;
+            const hue = (time * 50) % 360;
+            
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen'; 
+            
+            const glowRadius = this.size * 3; 
+            const grad = ctx.createRadialGradient(0, 0, this.size * 0.1, 0, 0, glowRadius);
+            
+            grad.addColorStop(0, `hsla(${hue}, 100%, 70%, 0.2)`); 
+            grad.addColorStop(1, `hsla(${hue}, 100%, 70%, 0)`);
+            
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
         }
 
         ctx.globalAlpha = 1.0;

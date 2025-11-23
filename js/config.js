@@ -73,6 +73,35 @@ export const CONFIG = {
         friction: 0.96,
         turnSpeed: 0.08,
         foodGravity: 0.8
+    },
+    // Day/Night Cycle Configuration
+    // Cycle Duration: 5 minutes (300,000 ms)
+    cycleDuration: 300000, 
+    timeColors: {
+        // Dawn (0% - 25%)
+        dawn: { 
+            top: '#5D4E6D', bottom: '#2A1B3D', 
+            ray: 'rgba(255, 200, 150, 0.15)', caustic: 'rgba(255, 200, 150, 0.05)',
+            overlay: 'rgba(50, 20, 80, 0.2)'
+        },
+        // Day (25% - 60%)
+        day: { 
+            top: '#2F5A6E', bottom: '#16252B', 
+            ray: 'rgba(255, 255, 255, 0.08)', caustic: 'rgba(164, 221, 219, 0.05)',
+            overlay: 'rgba(0, 0, 0, 0)'
+        },
+        // Dusk (60% - 75%)
+        dusk: { 
+            top: '#704050', bottom: '#2D1E2F', 
+            ray: 'rgba(255, 150, 100, 0.1)', caustic: 'rgba(200, 100, 100, 0.05)',
+            overlay: 'rgba(80, 40, 20, 0.2)'
+        },
+        // Night (75% - 100%)
+        night: { 
+            top: '#0F172A', bottom: '#020617', 
+            ray: 'rgba(100, 150, 255, 0.03)', caustic: 'rgba(50, 80, 150, 0.02)',
+            overlay: 'rgba(5, 10, 40, 0.6)'
+        }
     }
 };
 
@@ -84,6 +113,6 @@ export const SPECIES = [
     { id: 'hunter', name: 'Shadow Hunter', cost: 1200, colorBody: '#2C3E50', colorFin: '#E74C3C', size: 30, speed: 3.8, finType: 'fancy', personality: 'aggressive, hunting, and sharp', isPredator: true, soundPitch: 0.6, imagePath: 'assets/fish/Shadow Hunter' },
     { id: 'sun', name: 'Sky Spirit', cost: 2000, colorBody: '#fff', colorFin: '#48CAE4', size: 35, speed: 3.0, finType: 'flowing', personality: 'majestic, ancient, and noble', soundPitch: 1.8, imagePath: 'assets/fish/Sky Spirit' },
     { id: 'lord', name: 'River Lord', cost: 5000, colorBody: '#4A5568', colorFin: '#2D3748', size: 60, speed: 1.2, finType: 'flowing', personality: 'massive, slow, and insatiable', isPredator: true, soundPitch: 0.4, imagePath: 'assets/fish/River Lord' },
-    { id: 'rainbow', name: 'Rainbow Spirit', cost: 10000, colorBody: '#9370DB', colorFin: '#00FFFF', size: 45, speed: 5.0, finType: 'flowing', personality: 'colorful and radiant', soundPitch: 2.0, imagePath: 'assets/fish/Rainbow Spirit' }
+    { id: 'rainbow', name: 'Rainbow Spirit', cost: 10000, colorBody: '#9370DB', colorFin: '#00FFFF', size: 45, speed: 3.5, finType: 'flowing', personality: 'colorful and radiant', soundPitch: 2.0, imagePath: 'assets/fish/Rainbow Spirit' }
 ];
 

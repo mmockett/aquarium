@@ -46,9 +46,11 @@ export function addToGraveyard(fish, deadCount) {
         ${fish.name} (${fish.species.name})
         <span>${reason} after ${mins} minutes</span>
     `;
-    list.insertBefore(div, list.children[1]); 
     
-    if (list.children.length > 31) {
+    // Insert at top of list (newest first)
+    list.insertBefore(div, list.firstChild); 
+    
+    if (list.children.length > 30) {
         list.removeChild(list.lastChild);
     }
     

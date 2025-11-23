@@ -1,9 +1,10 @@
 import { SoundManager } from './classes/SoundManager.js';
-import { SpatialHash, Vector, rand, distSq, applyManualBlur } from './utils.js';
+import { SpatialHash, Vector, rand, distSq, applyManualBlur, lerpColor } from './utils.js';
 import { Fish } from './classes/Fish.js';
 import { Food } from './classes/Food.js';
 import { Bubble } from './classes/Bubble.js';
 import { Ripple } from './classes/Ripple.js';
+import { BloodMist } from './classes/BloodMist.js';
 import { CONFIG, SPECIES } from './config.js';
 import * as UI from './ui.js';
 
@@ -31,6 +32,14 @@ const WEED_FILES = ['assets/weeds/Weeds.png', 'assets/weeds/Weeds 2.png', 'asset
 let weedInstances = [];
 let weedCanvases = []; // Cache for pre-blurred weeds
 
+let timeCycle = 0; // 0 to 1
+let currentColors = { ...CONFIG.timeColors.day };
+let isNight = false;
+
+// UI State
+let affordableSpeciesIds = new Set();
+let shopForcedOpenTimer = null; // Timer to keep shop forced open
+
 const sound = new SoundManager();
 const spatialGrid = new SpatialHash(150);
 
@@ -52,6 +61,19 @@ function init() {
         const rect = canvas.getBoundingClientRect();
         mousePos.x = e.clientX - rect.left;
         mousePos.y = e.clientY - rect.top;
+
+        // Dock Logic: Show bottom UI when mouse is near bottom
+        const bottomUI = document.querySelector('.bottom-ui');
+        const threshold = 150; // Detection zone height in pixels
+        
+        // Only toggle based on mouse if NOT forced open by timer
+        if (bottomUI && !shopForcedOpenTimer) {
+            if (height - mousePos.y < threshold) {
+                bottomUI.classList.add('active');
+            } else {
+                bottomUI.classList.remove('active');
+            }
+        }
     });
 
     // Attach UI Event Listeners
@@ -490,16 +512,56 @@ function buyFish(species) {
 }
 
 function updateShopUI() {
+    let newUnlock = false;
+    
     SPECIES.forEach(s => {
         const el = document.getElementById(`shop-item-${s.id}`);
         if (score >= s.cost) {
+            // Check for new affordability
+            if (!affordableSpeciesIds.has(s.id)) {
+                affordableSpeciesIds.add(s.id);
+                newUnlock = true;
+            }
+            
             el.classList.remove('locked');
             el.classList.add('affordable');
         } else {
+            // Remove from set if it becomes unaffordable (e.g. after spending)
+            // But we don't want to trigger "new unlock" when re-earning
+            // So we only remove if we want to re-trigger. 
+            // Usually games don't re-announce. 
+            // However, if we want the set to accurately reflect CURRENT affordability:
+            if (affordableSpeciesIds.has(s.id)) {
+                affordableSpeciesIds.delete(s.id);
+            }
+            
             el.classList.add('locked');
             el.classList.remove('affordable');
         }
     });
+
+    if (newUnlock) {
+        openShopTemporarily();
+    }
+}
+
+function openShopTemporarily() {
+    const bottomUI = document.querySelector('.bottom-ui');
+    if (bottomUI) {
+        bottomUI.classList.add('active');
+        
+        if (shopForcedOpenTimer) clearTimeout(shopForcedOpenTimer);
+        
+        shopForcedOpenTimer = setTimeout(() => {
+            shopForcedOpenTimer = null;
+            // Check mouse position to see if we should close immediately
+            // If mouse is NOT in the activation zone, close it.
+            // Detection zone threshold is 150px from bottom.
+            if (height - mousePos.y >= 150) {
+                bottomUI.classList.remove('active');
+            }
+        }, 5000);
+    }
 }
 
 function checkGameOver() {
@@ -519,10 +581,7 @@ function restartGame() {
     document.querySelector('.graveyard-title').innerText = 'Spirit Memories (0)';
     
     const list = document.getElementById('graveyardList');
-    // Keep the title
-    while (list.children.length > 1) {
-        list.removeChild(list.lastChild);
-    }
+    list.innerHTML = '';
     
     fishes.push(new Fish(SPECIES[0], false, width, height));
     
@@ -617,8 +676,8 @@ function drawBackground() {
     ctx.globalCompositeOperation = 'multiply';
     ctx.globalAlpha = 0.8; // Reduced opacity so image shows through more clearly
     let grad = ctx.createLinearGradient(0, 0, 0, height);
-    grad.addColorStop(0, CONFIG.colors.waterTop);
-    grad.addColorStop(1, CONFIG.colors.waterBottom);
+    grad.addColorStop(0, currentColors.top);
+    grad.addColorStop(1, currentColors.bottom);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
     ctx.restore();
@@ -637,7 +696,7 @@ function drawBackground() {
         }
         
         cCtx.clearRect(0, 0, cW, cH);
-        cCtx.fillStyle = CONFIG.colors.caustic;
+        cCtx.fillStyle = currentColors.caustic;
         
         let time = Date.now() * 0.0005;
         // Draw caustics on small canvas (coordinates scaled down)
@@ -659,6 +718,14 @@ function drawBackground() {
         ctx.drawImage(causticCanvas, 0, 0, width, height);
         ctx.restore();
     }
+
+    // Night Overlay
+    if (currentColors.overlay) {
+        ctx.save();
+        ctx.fillStyle = currentColors.overlay;
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+    }
 }
 
 // World context object (reused to avoid GC)
@@ -670,6 +737,7 @@ const world = {
     particles: [], 
     sound,
     isTalkMode: false,
+    isNight: false,
     mousePos: {x:0, y:0},
     now: 0,
     onScoreUpdate: (amount) => {
@@ -693,13 +761,115 @@ const world = {
     }
 };
 
+function updateTimeCycle(dt) {
+    // Advance cycle
+    timeCycle += (dt * 1000) / CONFIG.cycleDuration;
+    if (timeCycle >= 1) timeCycle = 0;
+
+    let phase, nextPhase, t;
+    const TC = CONFIG.timeColors;
+
+    // Determine phase
+    if (timeCycle < 0.25) {
+        // Dawn -> Day
+        phase = TC.dawn;
+        nextPhase = TC.day;
+        t = timeCycle / 0.25;
+        isNight = false;
+    } else if (timeCycle < 0.6) {
+        // Day
+        phase = TC.day;
+        nextPhase = TC.day; // Stay Day
+        t = 0;
+        isNight = false;
+    } else if (timeCycle < 0.75) {
+        // Day -> Dusk
+        phase = TC.day;
+        nextPhase = TC.dusk;
+        t = (timeCycle - 0.6) / 0.15;
+        isNight = false;
+    } else if (timeCycle < 0.85) {
+        // Dusk -> Night
+        phase = TC.dusk;
+        nextPhase = TC.night;
+        // Ensure t goes from 0 to 1 exactly over the window 0.75 -> 0.85
+        t = (timeCycle - 0.75) / 0.1;
+        isNight = t > 0.5;
+    } else if (timeCycle < 0.9) {
+        // Full Night (Static)
+        phase = TC.night;
+        nextPhase = TC.night;
+        t = 0;
+        isNight = true;
+    } else {
+        // Night -> Dawn (wrap around)
+        phase = TC.night;
+        nextPhase = TC.dawn;
+        t = (timeCycle - 0.9) / 0.1;
+        // Transition back to day behavior halfway through dawn
+        isNight = t < 0.5;
+    }
+
+    // Interpolate colors
+    currentColors.top = lerpColor(phase.top, nextPhase.top, t);
+    currentColors.bottom = lerpColor(phase.bottom, nextPhase.bottom, t);
+    
+    // Smoothly interpolate overlay opacity and caustic color
+    // We need to parse RGBA to interpolate
+    // Helper for RGBA lerp (assuming format rgba(r, g, b, a))
+    const lerpRGBA = (c1, c2, t) => {
+        // Quick regex parse
+        const parse = (s) => s.match(/[\d.]+/g).map(Number);
+        const [r1, g1, b1, a1] = parse(c1);
+        const [r2, g2, b2, a2] = parse(c2);
+        
+        const r = Math.round(r1 + (r2 - r1) * t);
+        const g = Math.round(g1 + (g2 - g1) * t);
+        const b = Math.round(b1 + (b2 - b1) * t);
+        const a = a1 + (a2 - a1) * t;
+        
+        return `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
+    };
+
+    currentColors.caustic = lerpRGBA(phase.caustic, nextPhase.caustic, t);
+    currentColors.overlay = lerpRGBA(phase.overlay, nextPhase.overlay, t);
+
+    // Calculate fish opacity based on night darkness
+    // Default is 1.0. At peak night, it should be 0.8.
+    // We can use the overlay alpha as a proxy for "darkness", or just logic based on phase.
+    // Simpler: if phase is Night, alpha is 0.8. If transitioning to/from Night, lerp it.
+    
+    // Logic:
+    // Day/Dawn: 1.0
+    // Dusk -> Night: Lerp 1.0 -> 0.8
+    // Night -> Dawn: Lerp 0.8 -> 1.0
+    
+    let targetAlpha = 1.0;
+    if (phase === TC.dusk && nextPhase === TC.night) {
+        // Dusk -> Night (0.75 - 0.85)
+        targetAlpha = 1.0 - (t * 0.2); // 1.0 -> 0.8
+    } else if (phase === TC.night && nextPhase === TC.dawn) {
+        // Night -> Dawn (0.90 - 1.0)
+        targetAlpha = 0.8 + (t * 0.2); // 0.8 -> 1.0
+    } else if (phase === TC.night) {
+        // Full Night (0.85 - 0.90)
+        targetAlpha = 0.8;
+    } else {
+        targetAlpha = 1.0;
+    }
+    currentColors.fishAlpha = targetAlpha;
+}
+
 function loop() {
     requestAnimationFrame(loop);
     frameCount++;
 
     let now = Date.now();
     let dt = (now - lastTime) / 1000;
+    if (dt > 0.1) dt = 0.1; // Cap dt to prevent huge jumps
     lastTime = now;
+
+    updateTimeCycle(dt);
 
     // Auto Feed Logic (Dynamic Rate)
     if (isAutoFeed) {
@@ -760,6 +930,8 @@ function loop() {
     world.fishes = fishes;
     world.particles = particles;
     world.isTalkMode = isTalkMode;
+    world.isNight = isNight;
+    world.fishAlpha = currentColors.fishAlpha || 1.0;
     world.mousePos = mousePos;
 
     fishes.forEach(fish => {
@@ -772,6 +944,8 @@ function loop() {
             eatenFish.push(fish);
             
             world.spawnParticles(fish.pos.x, fish.pos.y, 15, '#E74C3C', 3);
+            // Add blood mist
+            particles.push(new BloodMist(fish.pos.x, fish.pos.y));
         }
     });
 
@@ -812,6 +986,13 @@ function loop() {
         if (p instanceof Bubble) {
             p.update();
             p.draw(ctx);
+            continue;
+        }
+
+        if (p instanceof BloodMist) {
+            p.update();
+            p.draw(ctx);
+            if (p.isDead) particles.splice(i, 1);
             continue;
         }
 
