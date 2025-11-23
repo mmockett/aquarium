@@ -8,6 +8,10 @@ body, html {
     overflow: hidden;
     background-color: #2b3a42;
     font-family: 'Patrick Hand', cursive;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
 
 #gameCanvas {
@@ -36,13 +40,27 @@ body, html {
     pointer-events: auto;
 }
 
+/* Reusable glass style based on score-container */
+.glass-panel {
+    background: rgba(255, 255, 255, 0.2);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border: 1px solid rgba(255,255,255,0.3);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    color: #fff;
+}
+
 .left-group, .right-group {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
 }
 
 .score-container {
+    /* Inherits glass-panel styles via class in HTML or mixin, 
+       but for now we replicate the key properties to be safe or rely on utility class */
     background: rgba(255, 255, 255, 0.2);
     -webkit-backdrop-filter: blur(5px);
     backdrop-filter: blur(5px);
@@ -59,24 +77,28 @@ body, html {
 }
 
 .help-btn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.9);
-    border: none;
+    background: rgba(255, 255, 255, 0.2); /* Glass style */
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255,255,255,0.3);
     font-family: 'Patrick Hand', cursive;
     font-size: 24px;
-    color: #2b3a42;
+    color: #fff; /* White icon */
     cursor: pointer;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     display: flex;
     align-items: center;
     justify-content: center;
     transition: transform 0.2s;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .help-btn:hover {
     transform: scale(1.1);
+    background: rgba(255, 255, 255, 0.3);
 }
 
 .button-group {
@@ -85,29 +107,35 @@ body, html {
 }
 
 .mode-btn {
-    background: rgba(255, 255, 255, 0.9);
-    border: none;
+    background: rgba(255, 255, 255, 0.2); /* Glass style */
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255,255,255,0.3);
     padding: 10px 20px;
-    border-radius: 30px;
+    border-radius: 50px; /* Pill shape */
     font-family: 'Patrick Hand', cursive;
     font-size: 18px;
+    color: #fff; /* White text */
     cursor: pointer;
     transition: all 0.2s;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     display: flex;
     align-items: center;
     gap: 8px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .mode-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    background: rgba(255, 255, 255, 0.3);
 }
 
 .mode-btn.active {
-    background: #a4dddb;
-    color: #16252B;
-    box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+    background: rgba(164, 221, 219, 0.4); /* Slight tint */
+    border-color: #a4dddb;
+    color: #fff;
+    box-shadow: 0 0 15px rgba(164, 221, 219, 0.3);
 }
 
 .currency-icon {
@@ -125,11 +153,19 @@ body, html {
     width: 100%;
     height: auto;
     pointer-events: none;
+    transform: translateY(120%); /* Hidden by default */
+    transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); /* Smooth spring-like transition */
+    z-index: 100;
+    padding-bottom: 10px;
+}
+
+.bottom-ui.active {
+    transform: translateY(0);
 }
 
 .shop-container {
     pointer-events: auto;
-    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    background: transparent;
     padding: 20px;
     display: flex;
     gap: 15px;
@@ -150,46 +186,57 @@ body, html {
     right: 20px;
     width: 220px;
     max-height: 200px; 
-    background: rgba(0, 0, 0, 0.5);
-    -webkit-backdrop-filter: blur(4px);
-    backdrop-filter: blur(4px);
+    background: rgba(255, 255, 255, 0.2);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
     border-radius: 12px;
     padding: 15px;
-    color: #ddd;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
     pointer-events: auto;
-    overflow-y: auto;
-    border: 1px solid rgba(255,255,255,0.1);
+    overflow: hidden; /* Container itself doesn't scroll */
+    border: 1px solid rgba(255,255,255,0.3);
     display: flex;
     flex-direction: column;
     gap: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
-.graveyard-container::-webkit-scrollbar {
+.graveyard-scroll-area {
+    overflow-y: auto;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 4px; /* Space for scrollbar */
+}
+
+.graveyard-scroll-area::-webkit-scrollbar {
     width: 6px;
 }
-.graveyard-container::-webkit-scrollbar-track {
+.graveyard-scroll-area::-webkit-scrollbar-track {
     background: rgba(255,255,255,0.1);
+    border-radius: 3px;
 }
-.graveyard-container::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.3);
+.graveyard-scroll-area::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.5);
     border-radius: 3px;
 }
 
 .graveyard-title {
     font-size: 18px;
-    color: #a4dddb;
-    border-bottom: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    font-weight: bold;
+    border-bottom: 1px solid rgba(255,255,255,0.3);
     padding-bottom: 5px;
     margin-bottom: 5px;
-    position: sticky;
-    top: 0;
-    background: rgba(0,0,0,0.0);
-    backdrop-filter: blur(0);
+    flex-shrink: 0; /* Don't shrink */
+    background: transparent;
 }
 
 .tombstone {
     font-size: 14px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
     padding-bottom: 4px;
     flex-shrink: 0; 
 }
@@ -197,11 +244,14 @@ body, html {
 .tombstone span {
     display: block;
     font-size: 12px;
-    color: #888;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .fish-card {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.2);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255,255,255,0.3);
     border-radius: 12px;
     padding: 8px;
     min-width: 90px;
@@ -211,13 +261,14 @@ body, html {
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     position: relative;
     opacity: 0.8;
-    border: 2px solid transparent;
     display: flex;
     flex-direction: column;
     align-items: center;
     height: 80px; /* Default collapsed height */
     justify-content: center;
     overflow: hidden;
+    color: #fff; /* White text for glass UI */
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .fish-card:hover {
@@ -226,6 +277,7 @@ body, html {
     z-index: 10;
     height: 140px; /* Expanded height on hover */
     justify-content: space-between;
+    background: rgba(255, 255, 255, 0.3); /* Slightly lighter on hover */
 }
 
 .fish-card .fish-name, 
@@ -248,14 +300,16 @@ body, html {
 }
 
 .fish-card.locked {
-    background: rgba(100, 100, 100, 0.5);
+    background: rgba(100, 100, 100, 0.3); /* Darker glass for locked */
     cursor: not-allowed;
     filter: grayscale(1);
+    border-color: rgba(255,255,255,0.1);
 }
 
 .fish-card.affordable {
     border-color: #88e1d5;
     box-shadow: 0 0 15px rgba(136, 225, 213, 0.5);
+    background: rgba(164, 221, 219, 0.3); /* Tinted glass for affordable */
 }
 
 /* Predator Badge Style */
@@ -283,16 +337,17 @@ body, html {
 
 .fish-name {
     font-size: 14px;
-    color: #333;
+    color: #fff; /* White text */
     font-weight: bold;
     line-height: 1.2;
     margin-top: 4px;
     margin-bottom: 2px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 .fish-count {
     font-size: 11px;
-    color: #666;
+    color: rgba(255, 255, 255, 0.8);
     margin-bottom: 2px;
     display: none; /* Hidden by default like other details */
 }
@@ -303,7 +358,7 @@ body, html {
 
 .fish-cost {
     font-size: 12px;
-    color: #666;
+    color: rgba(255, 255, 255, 0.9);
 }
 
 #toast {
@@ -485,7 +540,6 @@ body, html {
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(4px);
-    margin-right: 10px; 
 }
 
 .sound-toggle-btn:hover {
