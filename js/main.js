@@ -880,8 +880,8 @@ function updateTimeCycle(dt) {
         phase = TC.night;
         nextPhase = TC.dawn;
         t = (timeCycle - 0.9) / 0.1;
-        // Transition back to day behavior halfway through dawn
-        isNight = t < 0.5;
+        // Transition back to day behavior halfway through dawn phase
+        isNight = true; // Stay in night mode during transition to Dawn for smoother sleep wake up
     }
 
     // Interpolate colors
@@ -921,9 +921,9 @@ function updateTimeCycle(dt) {
     } else if (phase === TC.night && nextPhase === TC.night) {
         // Full Night
         nightFade = 1.0;
-    } else if (phase === TC.night && nextPhase === TC.dawn) {
-        // Should be covered by above, but just in case
-        nightFade = 1.0; 
+    } else if (phase === TC.night) {
+        // General night catch-all
+        nightFade = 1.0;
     }
     
     currentColors.nightFade = nightFade;
