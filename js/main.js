@@ -11,15 +11,11 @@ import * as UI from './ui.js';
 // --- Game State ---
 let canvas, ctx;
 let width, height;
-let score = 0;
 let particles = [];
 let fishes = [];
 let ripples = [];
 let lastTime = 0;
 let lastAutoFeedTime = 0;
-let isTalkMode = false;
-let isAutoFeed = false;
-let autoFeedTimer = null;
 let mousePos = { x: -9999, y: -9999 };
 let deadCount = 0;
 let idleTimer = null;
@@ -36,9 +32,10 @@ let timeCycle = 0; // 0 to 1
 let currentColors = { ...CONFIG.timeColors.day };
 let isNight = false;
 
-// UI State
-let affordableSpeciesIds = new Set();
-let shopForcedOpenTimer = null; // Timer to keep shop forced open
+// FPS tracking
+let fpsFrameCount = 0;
+let fpsLastTime = performance.now();
+let currentFPS = 60;
 
 const sound = new SoundManager();
 const spatialGrid = new SpatialHash(150);
@@ -54,73 +51,43 @@ function init() {
 
     canvas.addEventListener('mousedown', handleInput);
     canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
         handleInput(e.touches[0]);
-    });
+    }, { passive: false });
 
     canvas.addEventListener('mousemove', (e) => {
         const rect = canvas.getBoundingClientRect();
         mousePos.x = e.clientX - rect.left;
         mousePos.y = e.clientY - rect.top;
+    });
 
-        // Dock Logic: Show bottom UI when mouse is near bottom
-        const bottomUI = document.querySelector('.bottom-ui');
-        const threshold = 150; // Detection zone height in pixels
-        
-        // Only toggle based on mouse if NOT forced open by timer
-        if (bottomUI && !shopForcedOpenTimer) {
-            if (height - mousePos.y < threshold) {
-                bottomUI.classList.add('active');
-            } else {
-                bottomUI.classList.remove('active');
+    // Initialize the new UI system
+    UI.initUI(SPECIES, {
+        onPurchase: (speciesId) => {
+            const species = SPECIES.find(s => s.id === speciesId);
+            if (species) {
+                const f = new Fish(species, false, width, height);
+                f.pos.x = width / 2;
+                f.pos.y = height / 2;
+                fishes.push(f);
+                ripples.push(new Ripple(width/2, height/2));
+                sound.playChime();
+                UI.updateFishCounts(fishes);
             }
-        }
-    });
-
-    // Attach UI Event Listeners
-    document.getElementById('autoFeedBtn').addEventListener('click', toggleAutoFeed);
-    document.getElementById('talkBtn').addEventListener('click', toggleTalkMode);
-    document.getElementById('soundToggleBtn').addEventListener('click', () => sound.toggle());
-    document.getElementById('uiToggleBtn').addEventListener('click', toggleUI);
-    document.querySelector('.help-btn').addEventListener('click', UI.toggleHelp);
-    document.querySelector('.close-help').addEventListener('click', UI.toggleHelp);
-    document.querySelector('.restart-btn').addEventListener('click', restartGame);
-    
-    // Debug Buttons
-    document.getElementById('fullResetBtn').addEventListener('click', () => {
-        if(confirm("Are you sure? This will delete all save data and reset the aquarium.")) {
-            localStorage.clear();
+        },
+        onBackgroundChange: (bgId) => {
+            loadBackground(bgId);
+        },
+        onTimeSpeedChange: (speed) => {
+            // Time speed is read from UI.getCycleDuration() in updateTimeCycle
+        },
+        onRestart: () => {
             restartGame();
-            // Reset score to 100 (default start)
-            score = 100;
-            UI.updateScore(score);
-            updateShopUI();
-            UI.showToast("Game Reset!");
         }
     });
-    
-    document.getElementById('debugOrbsBtn').addEventListener('click', () => {
-        score += 100000;
-        UI.updateScore(score);
-        updateShopUI();
-        UI.showToast("💰 100,000 Orbs Added!");
-        saveGame();
-    });
 
-    // Load background image
-    const BACKGROUNDS = [
-        'assets/backgrounds/Background1.jpg',
-        'assets/backgrounds/Background2.jpg',
-        'assets/backgrounds/Background3.jpg',
-        'assets/backgrounds/Background4.jpg'
-    ];
-    
-    backgroundImage = new Image();
-    const randomBg = BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)];
-    backgroundImage.src = randomBg;
-    backgroundImage.onerror = () => {
-        console.warn(`Background image failed to load: ${randomBg}`);
-        backgroundImage = null;
-    };
+    // Load background based on saved setting
+    loadBackground(UI.getSelectedBackground());
 
     // Load weeds
     WEED_FILES.forEach(src => {
@@ -134,7 +101,7 @@ function init() {
         weedInstances.push({
             imgIndex: Math.floor(Math.random() * WEED_FILES.length),
             xRatio: Math.random(),
-            scale: 0.25 + Math.random() * 0.25, // Reduced to 50% of previous (0.5-1.0 -> 0.25-0.5)
+            scale: 0.25 + Math.random() * 0.25,
             speed: 0.0005 + Math.random() * 0.0005,
             phase: Math.random() * Math.PI * 2
         });
@@ -147,14 +114,14 @@ function init() {
     
     for(let i=0; i<20; i++) particles.push(new Bubble(width, height));
 
-    initShop();
     loop();
     
+    // Periodic score update and autosave
     setInterval(() => {
-        score += fishes.length;
-        UI.updateScore(score);
-        UI.updateFishCounts(fishes); // Update counts periodically
-        saveGame(); // Autosave
+        const state = UI.getState();
+        UI.updateScore(state.score + fishes.length);
+        UI.updateFishCounts(fishes);
+        saveGame();
     }, 3000);
 
     // Save on close
@@ -163,10 +130,21 @@ function init() {
     resetIdleTimer();
 }
 
+function loadBackground(bgId) {
+    const bgFile = `assets/backgrounds/Background${bgId}.jpg`;
+    backgroundImage = new Image();
+    backgroundImage.src = bgFile;
+    backgroundImage.onload = () => {
+        bgCache = null; // Invalidate cache to regenerate with new image
+    };
+    backgroundImage.onerror = () => {
+        console.warn(`Background image failed to load: ${bgFile}`);
+        backgroundImage = null;
+    };
+}
+
 function saveGame() {
     const data = {
-        score,
-        unlockedSpecies: Array.from(unlockedSpecies),
         fishes: fishes.map(f => ({
             speciesId: f.species.id,
             pos: f.pos,
@@ -180,29 +158,19 @@ function saveGame() {
             fullCooldown: f.fullCooldown
         }))
     };
-    localStorage.setItem('spiritAquariumSave', JSON.stringify(data));
+    localStorage.setItem('spiritAquariumFishes', JSON.stringify(data));
 }
 
 function loadGame() {
-    const saved = localStorage.getItem('spiritAquariumSave');
+    const saved = localStorage.getItem('spiritAquariumFishes');
     if (!saved) return false;
 
     try {
         const data = JSON.parse(saved);
         
-        // Validate data structure minimally
-        if (typeof data.score !== 'number' || !Array.isArray(data.fishes)) {
+        if (!Array.isArray(data.fishes)) {
             console.warn("Invalid save data format");
             return false;
-        }
-
-        // Restore score
-        score = data.score;
-        UI.updateScore(score);
-
-        // Restore unlocks
-        if (Array.isArray(data.unlockedSpecies)) {
-            unlockedSpecies = new Set(data.unlockedSpecies);
         }
 
         // Restore fishes
@@ -211,7 +179,6 @@ function loadGame() {
             const species = SPECIES.find(s => s.id === fData.speciesId);
             if (species) {
                 const fish = new Fish(species, false, width, height);
-                // Override properties
                 if (fData.pos) fish.pos = new Vector(fData.pos.x, fData.pos.y);
                 if (fData.vel) fish.vel = new Vector(fData.vel.x, fData.vel.y);
                 if (fData.size) fish.size = fData.size;
@@ -226,7 +193,7 @@ function loadGame() {
             }
         });
 
-        // If no fish survived loading (or empty save), return false to trigger default init
+        UI.updateFishCounts(fishes);
         return fishes.length > 0;
 
     } catch (e) {
@@ -241,7 +208,7 @@ function resetIdleTimer() {
     if(el) el.style.opacity = 0;
     
     // Only set idle timer if Auto Feed is OFF
-    if (!isAutoFeed) {
+    if (!UI.isAutoFeedEnabled()) {
         idleTimer = setTimeout(() => {
             if(el) el.style.opacity = 1;
         }, 60000);
@@ -265,69 +232,6 @@ function toggleUI() {
     document.body.classList.toggle('ui-hidden');
 }
 
-function toggleTalkMode() {
-    isTalkMode = !isTalkMode;
-    const btn = document.getElementById('talkBtn');
-    if (isTalkMode) {
-        btn.classList.add('active');
-        btn.innerText = "🐟 Feed the Spirits";
-        document.body.style.cursor = "help";
-        sound.playBloop(1.5);
-        
-        // Show status message at smaller breakpoint
-        if (window.innerWidth < 660) {
-            UI.showToast("✨ Talk to Spirits: ON");
-        }
-    } else {
-        btn.classList.remove('active');
-        btn.innerText = "✨ Talk to Spirits";
-        document.body.style.cursor = "default";
-        
-        // Show status message at smaller breakpoint
-        if (window.innerWidth < 660) {
-            UI.showToast("✨ Talk to Spirits: OFF");
-        }
-    }
-}
-
-function toggleAutoFeed() {
-    isAutoFeed = !isAutoFeed;
-    const btn = document.getElementById('autoFeedBtn');
-    sound.playBloop(0.8);
-    
-    if (isAutoFeed) {
-        btn.classList.add('active');
-        btn.innerText = "🍂 Auto Feed: ON";
-        // Reset timer so it feeds immediately
-        lastAutoFeedTime = 0;
-        
-        // Clear any existing idle prompt immediately
-        resetIdleTimer();
-        
-        // Show status message at smaller breakpoint
-        if (window.innerWidth < 660) {
-            UI.showToast("🍂 Auto Feed: ON");
-        }
-    } else {
-        btn.classList.remove('active');
-        btn.innerText = "🍂 Auto Feed: OFF";
-        
-        // Re-enable idle tracking
-        resetIdleTimer();
-        
-        // Show status message at smaller breakpoint
-        if (window.innerWidth < 660) {
-            UI.showToast("🍂 Auto Feed: OFF");
-        }
-    }
-    
-    // Clear legacy timer if it exists (cleanup)
-    if (autoFeedTimer) {
-        clearInterval(autoFeedTimer);
-        autoFeedTimer = null;
-    }
-}
-
 function handleInput(e) {
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -335,7 +239,7 @@ function handleInput(e) {
 
     resetIdleTimer();
 
-    if (isTalkMode) {
+    if (UI.isTalkModeEnabled()) {
         let clickedFish = null;
         for (let f of fishes) {
             if (!f.isDead) {
@@ -360,254 +264,25 @@ function handleInput(e) {
     }
 }
 
-let unlockedSpecies = new Set(['basic']); // Track unlocked species IDs
-
-function initShop() {
-    const container = document.getElementById('shopContainer');
-    container.innerHTML = '';
-    
-    SPECIES.forEach(s => {
-        const el = document.createElement('div');
-        el.className = 'fish-card';
-        el.id = `shop-item-${s.id}`;
-        
-        // If unlocked, show full details
-        if (unlockedSpecies.has(s.id)) {
-            if (s.isPredator) {
-                const badge = document.createElement('div');
-                badge.className = 'predator-badge';
-                badge.innerHTML = '⚠️'; 
-                badge.title = 'Aggressive Predator';
-                el.appendChild(badge);
-            }
-
-            const previewContainer = document.createElement('div');
-            previewContainer.style.height = '40px';
-            previewContainer.style.display = 'flex';
-            previewContainer.style.alignItems = 'center';
-            previewContainer.style.justifyContent = 'center';
-            previewContainer.style.marginBottom = '5px';
-
-            if (s.imagePath) {
-                const img = new Image();
-                img.src = `${s.imagePath}/Thumbnail.png`;
-                img.style.maxWidth = '80px';
-                img.style.maxHeight = '50px';
-                img.style.objectFit = 'contain';
-                
-                img.onerror = () => {
-                    img.remove();
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 60;
-                    canvas.height = 40;
-                    canvas.className = 'fish-preview-canvas';
-                    canvas.id = `preview-${s.id}`;
-                    previewContainer.appendChild(canvas);
-                    renderSingleShopIcon(s);
-                };
-                previewContainer.appendChild(img);
-            } else {
-                const canvas = document.createElement('canvas');
-                canvas.width = 60;
-                canvas.height = 40;
-                canvas.className = 'fish-preview-canvas';
-                canvas.id = `preview-${s.id}`;
-                previewContainer.appendChild(canvas);
-            }
-            
-            el.appendChild(previewContainer);
-            
-            const nameEl = document.createElement('div');
-            nameEl.className = 'fish-name';
-            nameEl.innerText = s.name;
-            el.appendChild(nameEl);
-
-            const countEl = document.createElement('div');
-            countEl.className = 'fish-count';
-            countEl.id = `count-${s.id}`;
-            countEl.innerText = `0 alive`;
-            el.appendChild(countEl);
-        } else {
-            // Locked / Mysterious State
-            const mysteryIcon = document.createElement('div');
-            mysteryIcon.style.fontSize = '30px';
-            mysteryIcon.style.marginBottom = '10px';
-            mysteryIcon.style.opacity = '0.5';
-            mysteryIcon.innerText = '?';
-            el.appendChild(mysteryIcon);
-
-            // Still show predator badge if it's a predator (safety warning!)
-            if (s.isPredator) {
-                const badge = document.createElement('div');
-                badge.className = 'predator-badge';
-                badge.innerHTML = '⚠️'; 
-                badge.title = 'Aggressive Predator';
-                el.appendChild(badge);
-            }
-
-            const nameEl = document.createElement('div');
-            nameEl.className = 'fish-name';
-            nameEl.innerText = "Unknown";
-            el.appendChild(nameEl);
-
-            const countEl = document.createElement('div');
-            countEl.className = 'fish-count';
-            countEl.id = `count-${s.id}`;
-            countEl.innerText = `0 alive`;
-            el.appendChild(countEl);
-        }
-        
-        const costEl = document.createElement('div');
-        costEl.className = 'fish-cost';
-        costEl.innerText = `${s.cost} Orbs`;
-        el.appendChild(costEl);
-        
-        el.onclick = () => buyFish(s);
-        container.appendChild(el);
-    });
-    
-    renderShopIcons();
-    updateShopUI();
-}
-
-function renderSingleShopIcon(s) {
-    const canvas = document.getElementById(`preview-${s.id}`);
-    if (!canvas) return; 
-    
-    const pCtx = canvas.getContext('2d');
-    
-    // Create a dummy fish just for drawing
-    const dummy = new Fish(s, false, 100, 100);
-    dummy.pos.x = 30;
-    dummy.pos.y = 20;
-    dummy.size = Math.min(s.size, 15); 
-    dummy.angle = 0;
-    dummy.visualAngle = 0; // Ensure it faces right immediately
-    dummy.tailAngle = 0;   // Reset tail animation
-    
-    pCtx.clearRect(0, 0, 60, 40);
-    
-    // If images are cached, this will draw immediately. 
-    // If not, it might draw nothing, but the static Thumbnail.png should exist now.
-    dummy.draw(pCtx, { isTalkMode: false, mousePos: null, now: Date.now() });
-}
-
-function renderShopIcons() {
-    SPECIES.forEach(s => {
-        // Only render preview if unlocked
-        if (unlockedSpecies.has(s.id)) {
-            renderSingleShopIcon(s);
-        }
-    });
-}
-
-function buyFish(species) {
-    if (score >= species.cost) {
-        score -= species.cost;
-        
-        // Unlock the species if it's the first time
-        if (!unlockedSpecies.has(species.id)) {
-            unlockedSpecies.add(species.id);
-            // Re-render shop to show the revealed fish
-            initShop();
-        }
-
-        UI.updateScore(score);
-        updateShopUI();
-        UI.showToast("Summoning Spirit...");
-        
-        sound.playChime(); 
-
-        const f = new Fish(species, false, width, height);
-        f.pos.x = width / 2;
-        f.pos.y = height / 2;
-        fishes.push(f);
-        
-        UI.updateFishCounts(fishes); // Update immediately on purchase
-        
-        ripples.push(new Ripple(width/2, height/2));
-    }
-}
-
-function updateShopUI() {
-    let newUnlock = false;
-    
-    SPECIES.forEach(s => {
-        const el = document.getElementById(`shop-item-${s.id}`);
-        if (score >= s.cost) {
-            // Check for new affordability
-            if (!affordableSpeciesIds.has(s.id)) {
-                affordableSpeciesIds.add(s.id);
-                newUnlock = true;
-            }
-            
-            el.classList.remove('locked');
-            el.classList.add('affordable');
-        } else {
-            // Remove from set if it becomes unaffordable (e.g. after spending)
-            // But we don't want to trigger "new unlock" when re-earning
-            // So we only remove if we want to re-trigger. 
-            // Usually games don't re-announce. 
-            // However, if we want the set to accurately reflect CURRENT affordability:
-            if (affordableSpeciesIds.has(s.id)) {
-                affordableSpeciesIds.delete(s.id);
-            }
-            
-            el.classList.add('locked');
-            el.classList.remove('affordable');
-        }
-    });
-
-    if (newUnlock) {
-        openShopTemporarily();
-    }
-}
-
-function openShopTemporarily() {
-    const bottomUI = document.querySelector('.bottom-ui');
-    if (bottomUI) {
-        bottomUI.classList.add('active');
-        
-        if (shopForcedOpenTimer) clearTimeout(shopForcedOpenTimer);
-        
-        shopForcedOpenTimer = setTimeout(() => {
-            shopForcedOpenTimer = null;
-            // Check mouse position to see if we should close immediately
-            // If mouse is NOT in the activation zone, close it.
-            // Detection zone threshold is 150px from bottom.
-            if (height - mousePos.y >= 150) {
-                bottomUI.classList.remove('active');
-            }
-        }, 5000);
-    }
-}
 
 function checkGameOver() {
-    if (fishes.length === 0 && score < 100) {
-        document.getElementById('restartOverlay').classList.add('show');
+    const state = UI.getState();
+    if (fishes.length === 0 && state.score < 100) {
+        // Show a toast instead of blocking overlay
+        UI.showToast('All spirits have departed. Tap Shop to summon more.', '💫', 4000);
     }
 }
 
 function restartGame() {
-    score = 100; // Reset to 100 Orbs
     fishes = [];
     particles = [];
     ripples = [];
     deadCount = 0;
     
-    UI.updateScore(score);
-    document.querySelector('.graveyard-title').innerText = 'Spirit Memories (0)';
+    // Reinitialize bubbles
+    for(let i=0; i<20; i++) particles.push(new Bubble(width, height));
     
-    const list = document.getElementById('graveyardList');
-    list.innerHTML = '';
-    
-    // Remove all fish, start with zero
-    // fishes.push(new Fish(SPECIES[0], false, width, height));
-    
-    document.getElementById('restartOverlay').classList.remove('show');
-    
-    updateShopUI();
-    UI.updateFishCounts(fishes); // Update on restart
+    UI.updateFishCounts(fishes);
 }
 
 function drawBackground() {
@@ -815,11 +490,14 @@ const world = {
     mousePos: {x:0, y:0},
     now: 0,
     onScoreUpdate: (amount) => {
-        score += amount;
-        UI.updateScore(score);
-        updateShopUI();
+        const state = UI.getState();
+        UI.updateScore(state.score + amount);
     },
     showToast: UI.showToast,
+    onBirth: (parent1Name, parent2Name, babyNames, speciesName) => {
+        UI.addBirthEvent(parent1Name, parent2Name, babyNames, speciesName);
+        UI.updateFishCounts(fishes);
+    },
     spawnParticles: (x, y, count, color, speed = 2) => {
         for(let i=0; i<count; i++) {
             if(particles.length < 200) {
@@ -836,9 +514,21 @@ const world = {
 };
 
 function updateTimeCycle(dt) {
-    // Advance cycle
-    timeCycle += (dt * 1000) / CONFIG.cycleDuration;
-    if (timeCycle >= 1) timeCycle = 0;
+    // Get cycle duration from UI (handles time speed setting)
+    const cycleDuration = UI.getCycleDuration();
+    
+    // Handle realtime mode (sync with device time)
+    if (UI.getTimeSpeed() === 1) {
+        const now = new Date();
+        const secondsInDay = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+        timeCycle = secondsInDay / 86400;
+    } else if (cycleDuration === Infinity) {
+        // Stopped - don't advance
+    } else {
+        // Normal time progression
+        timeCycle += (dt * 1000) / cycleDuration;
+        if (timeCycle >= 1) timeCycle = 0;
+    }
 
     let phase, nextPhase, t;
     const TC = CONFIG.timeColors;
@@ -940,8 +630,18 @@ function loop() {
 
     updateTimeCycle(dt);
 
+    // FPS tracking
+    fpsFrameCount++;
+    const fpsNow = performance.now();
+    if (fpsNow - fpsLastTime >= 1000) {
+        currentFPS = fpsFrameCount;
+        fpsFrameCount = 0;
+        fpsLastTime = fpsNow;
+        UI.updateDebugInfo(currentFPS, fishes.length);
+    }
+
     // Auto Feed Logic (Dynamic Rate)
-    if (isAutoFeed) {
+    if (UI.isAutoFeedEnabled()) {
         // Base rate: 0.1 pellets/sec. 
         // Scale up with population: +0.08 pellets/sec per fish
         // Average fish hunger cooldown is ~17s (random 5-30s).
@@ -998,7 +698,7 @@ function loop() {
     world.foodList = foodItems;
     world.fishes = fishes;
     world.particles = particles;
-    world.isTalkMode = isTalkMode;
+    world.isTalkMode = UI.isTalkModeEnabled();
     world.isNight = isNight;
     world.nightFade = currentColors.nightFade || 0;
     world.mousePos = mousePos;
@@ -1022,9 +722,9 @@ function loop() {
         const index = fishes.indexOf(fish);
         if (index > -1) {
             sound.playDeathToll();
-            UI.addToGraveyard(fish, ++deadCount);
+            UI.addDeathEvent(fish);
             fishes.splice(index, 1);
-            UI.updateFishCounts(fishes); // Update on death
+            UI.updateFishCounts(fishes);
         }
     });
     
@@ -1032,9 +732,10 @@ function loop() {
         const index = fishes.indexOf(fish);
         if (index > -1) {
             sound.playDeathToll();
-            UI.addToGraveyard(fish, ++deadCount); 
+            fish.deathReason = 'was hunted';
+            UI.addDeathEvent(fish);
             fishes.splice(index, 1);
-            UI.updateFishCounts(fishes); // Update on eaten
+            UI.updateFishCounts(fishes);
         }
     });
     

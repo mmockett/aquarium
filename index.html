@@ -2,85 +2,184 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Spirit Aquarium</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-layer">
-        <div class="hud-top">
-            <div class="left-group hideable">
-                <div class="score-container">
-                    <div class="currency-icon"></div>
-                    <span id="scoreDisplay">0</span>
-                </div>
-                <button class="help-btn">?</button>
-            </div>
-            
-            <div class="right-group">
-                <div class="button-group hideable">
-                    <button id="autoFeedBtn" class="mode-btn" data-icon="🍂">
-                        🍂 Auto Feed: OFF
-                    </button>
-                    <button id="talkBtn" class="mode-btn" data-icon="✨">
-                        ✨ Talk to Spirits
-                    </button>
-                </div>
-                <button id="soundToggleBtn" class="sound-toggle-btn muted" title="Toggle Sound">🎵</button>
-                <button id="uiToggleBtn" class="ui-toggle-btn" title="Toggle UI">👁️</button>
-            </div>
-        </div>
-        
-        <div id="toast">Summoning...</div>
-        <div class="tutorial-text">Click to feed the spirits...</div>
-        <div id="idlePrompt">The spirits are waiting... click to offer food.</div>
-
-        <div class="bottom-ui">
-            <div class="shop-container" id="shopContainer"></div>
-            <div class="graveyard-container">
-                <div class="graveyard-title">Spirit Memories (0)</div>
-                <div id="graveyardList" class="graveyard-scroll-area"></div>
-            </div>
+        <!-- Debug Info -->
+        <div id="debugInfo" class="debug-info">
+            <div>FPS: <span id="fpsDisplay">60</span></div>
+            <div>Fish: <span id="fishCountDisplay">0</span></div>
         </div>
 
-        <div id="helpOverlay">
-            <div class="help-modal">
-                <span class="close-help">×</span>
-                <h2>Aquarium Guide</h2>
-                <h3>🍂 Feeding & Growth</h3>
-                <p>Click to drop food. Fish eat to grow larger and earn you Spirit Orbs. Keep them well-fed (Energy > 0) or they may starve!</p>
-                <h3>❤️ Reproduction</h3>
-                <p>Two well-fed adult fish of the same species may fall in love and create offspring. Keep the population under 50 to allow new births.</p>
-                <h3>🦈 Predators & Prey</h3>
-                <p>Some spirits hunt others! Predators will lock onto smaller prey. Prey that have eaten recently (within 20s) can sprint to escape.</p>
-                <h3>⚠️ Territorial Tantrums</h3>
-                <p>If two predators get too close, they will fight! While fighting, they are too distracted to hunt prey.</p>
-                <h3>✨ Talk to Spirits</h3>
-                <p>Toggle "Talk" mode to click on spirits and hear their thoughts. In this mode, they slow down for you.</p>
-                <h3>💀 The Circle of Life</h3>
-                <p>Spirits live for a random time (1-24 hours). When they pass, they join the Spirit Memories.</p>
-                
-                <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; text-align: center;">
-                     <button id="fullResetBtn" style="background: #E74C3C; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-family: 'Patrick Hand';">⚠️ Restart Game</button>
-                </div>
-                
-                <div class="debug-controls" style="display: none; margin-top: 10px; justify-content: center;">
-                    <button id="debugOrbsBtn" style="background: #F1C40F; color: #333; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-family: 'Patrick Hand';">💰 +100k Orbs</button>
-                </div>
-            </div>
+        <!-- Toast Notification -->
+        <div id="toast" class="toast">
+            <span class="toast-icon">🍂</span>
+            <span class="toast-message">Autofeed enabled</span>
         </div>
 
-        <div id="restartOverlay">
-            <div class="restart-modal">
-                <h2>The Waters are Still</h2>
-                <p>All spirits have departed, and you lack the orbs to summon more.</p>
-                <button class="restart-btn">Begin Anew</button>
+        <!-- Idle Prompt -->
+        <div id="idlePrompt">The spirits are waiting... tap to offer food.</div>
+
+        <!-- Bottom Control Bar -->
+        <div class="bottom-bar">
+            <!-- Score Pill (opens settings) -->
+            <div id="scorePill" class="score-pill glass">
+                <div class="score-icon"></div>
+                <span id="scoreDisplay" class="score-value">0</span>
+            </div>
+
+            <!-- Right Control Group -->
+            <div class="control-group glass">
+                <button id="autoFeedBtn" class="glass-btn green" title="Auto Feed">🍂</button>
+                <button id="talkBtn" class="glass-btn yellow" title="Spirit Mode">✨</button>
+                <button id="memoriesBtn" class="glass-btn pink" title="Spirit Memories">
+                    💗
+                    <span id="memoriesBadge" class="badge" style="display: none;">0</span>
+                </button>
+                <button id="shopBtn" class="glass-btn blue" title="Shop">🛒</button>
             </div>
         </div>
     </div>
+
+    <!-- Settings Sheet -->
+    <div id="settingsOverlay" class="modal-overlay">
+        <div class="modal-sheet">
+            <div class="sheet-header">
+                <div class="sheet-drag-indicator"></div>
+                <span class="sheet-title">Settings</span>
+                <button class="sheet-close" onclick="closeSettings()">×</button>
+            </div>
+            <div class="sheet-content">
+                <!-- Background Selection -->
+                <div class="settings-section">
+                    <div class="settings-section-title">Background</div>
+                    <div class="settings-list" id="backgroundList">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Time Speed -->
+                <div class="settings-section">
+                    <div class="settings-section-title">Time</div>
+                    <div class="settings-list">
+                        <div class="settings-slider">
+                            <div class="slider-header">
+                                <span class="slider-label">
+                                    <span>🕐</span>
+                                    <span>Day/Night Cycle</span>
+                                </span>
+                                <span id="timeSpeedValue" class="slider-value">Normal</span>
+                            </div>
+                            <div class="slider-track" id="timeSlider">
+                                <div class="slider-fill" id="timeSliderFill"></div>
+                                <div class="slider-thumb" id="timeSliderThumb"></div>
+                            </div>
+                            <div class="slider-labels">
+                                <span>Stopped</span>
+                                <span>Fast</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-section-footer">Controls how fast the day/night cycle progresses.</div>
+                </div>
+
+                <!-- Debug Toggle -->
+                <div class="settings-section">
+                    <div class="settings-section-title">Developer</div>
+                    <div class="settings-list">
+                        <div class="settings-item" id="debugToggle">
+                            <span class="settings-item-icon">🐛</span>
+                            <span class="settings-item-label">Show Debug Info</span>
+                            <div id="debugSwitch" class="toggle-switch"></div>
+                        </div>
+                    </div>
+                    <div class="settings-section-footer">Shows FPS and fish count</div>
+                </div>
+
+                <!-- Restart Game -->
+                <div class="settings-section">
+                    <button class="danger-btn" id="restartBtn">
+                        <span>↺</span>
+                        <span>Restart Game</span>
+                    </button>
+                    <div class="settings-section-footer">Removes all fish and resets progress.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shop Sheet -->
+    <div id="shopOverlay" class="modal-overlay">
+        <div class="modal-sheet">
+            <div class="sheet-header">
+                <div class="sheet-drag-indicator"></div>
+                <span class="sheet-title">Shop</span>
+                <button class="sheet-close" onclick="closeShop()">×</button>
+            </div>
+            <div class="sheet-content" id="shopContent">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Spirit Memories Sheet -->
+    <div id="memoriesOverlay" class="modal-overlay">
+        <div class="modal-sheet">
+            <div class="sheet-header">
+                <div class="sheet-drag-indicator"></div>
+                <span class="sheet-title">Spirit Memories</span>
+                <button class="sheet-close" onclick="closeMemories()">×</button>
+            </div>
+            <div class="sheet-content" id="memoriesContent">
+                <!-- Stats Row -->
+                <div class="stats-row">
+                    <div class="stat-pill">
+                        <div class="stat-value">
+                            <span>🐟</span>
+                            <span id="statAlive">0</span>
+                        </div>
+                        <div class="stat-label">Alive</div>
+                    </div>
+                    <div class="stat-pill">
+                        <div class="stat-value">
+                            <span>✨</span>
+                            <span id="statBorn">0</span>
+                        </div>
+                        <div class="stat-label">Born</div>
+                    </div>
+                    <div class="stat-pill">
+                        <div class="stat-value">
+                            <span>💔</span>
+                            <span id="statPassed">0</span>
+                        </div>
+                        <div class="stat-label">Passed</div>
+                    </div>
+                </div>
+                <!-- Events List -->
+                <div id="eventsList">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="confirm-modal">
+        <div class="confirm-title">Restart Game?</div>
+        <div class="confirm-message">This will remove all fish and reset your progress. Are you sure?</div>
+        <div class="confirm-buttons">
+            <button class="confirm-btn cancel" onclick="closeConfirm()">Cancel</button>
+            <button class="confirm-btn danger" id="confirmRestartBtn">Restart</button>
+        </div>
+    </div>
+    <div id="confirmBackdrop" class="modal-overlay" onclick="closeConfirm()"></div>
 
     <script type="module" src="js/main.js"></script>
 </body>

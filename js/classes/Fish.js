@@ -179,9 +179,10 @@ export class Fish {
         const numOffspring = Math.floor(rand(1, 4)); 
         const spawnPos = new Vector((this.pos.x + mate.pos.x) / 2, (this.pos.y + mate.pos.y) / 2);
         
-        world.showToast(`New Spirits! ${this.name} and ${mate.name} welcome ${numOffspring} babies.`);
+        world.showToast(`New Spirits! ${this.name} and ${mate.name} welcome ${numOffspring} babies.`, '✨');
         world.sound.playChime(); 
 
+        const babyNames = [];
         for (let i = 0; i < numOffspring; i++) {
             const child = new Fish(this.species, true, world.width, world.height);
             child.pos = new Vector(spawnPos.x + rand(-5,5), spawnPos.y + rand(-5,5)); 
@@ -189,8 +190,14 @@ export class Fish {
             child.maxSpeed *= 1.5; 
             child.lastReproductionTime = world.now + rand(5 * 60 * 1000, 10 * 60 * 1000);
             world.fishes.push(child);
+            babyNames.push(child.name);
             
             world.spawnParticles(spawnPos.x, spawnPos.y, 8, '#A4DDBB', 2);
+        }
+
+        // Record birth event
+        if (world.onBirth) {
+            world.onBirth(this.name, mate.name, babyNames, this.species.name);
         }
 
         const cooldown = rand(5 * 60 * 1000, 10 * 60 * 1000);

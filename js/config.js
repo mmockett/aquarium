@@ -106,13 +106,63 @@ export const CONFIG = {
 };
 
 export const SPECIES = [
-    { id: 'basic', name: 'River Spirit', cost: 100, colorBody: '#E86F51', colorFin: '#F4A261', size: 15, speed: 2.5, finType: 'simple', personality: 'curious and bubbly', soundPitch: 1.0, imagePath: 'assets/fish/River Spirit' },
-    { id: 'starbit', name: 'Star Bit Guppy', cost: 250, colorBody: '#FFD93D', colorFin: '#FFF', size: 10, speed: 4.0, finType: 'simple', personality: 'energetic, starlike, and fast', soundPitch: 1.5, imagePath: 'assets/fish/Star Bit Guppy' },
-    { id: 'kodama', name: 'Kodama Tetra', cost: 350, colorBody: '#F1FAEE', colorFin: '#A8DADC', size: 12, speed: 3.5, finType: 'glow', personality: 'playful, clicking, and mysterious', soundPitch: 1.2, imagePath: 'assets/fish/Kodama Tetra' },
-    { id: 'forest', name: 'Mossy Carp', cost: 800, colorBody: '#457B9D', colorFin: '#1D3557', size: 25, speed: 1.8, finType: 'flowing', personality: 'slow, wise, and sleepy', soundPitch: 0.8, imagePath: 'assets/fish/Mossy Carp' },
-    { id: 'hunter', name: 'Shadow Hunter', cost: 1200, colorBody: '#2C3E50', colorFin: '#E74C3C', size: 30, speed: 3.8, finType: 'fancy', personality: 'aggressive, hunting, and sharp', isPredator: true, soundPitch: 0.6, imagePath: 'assets/fish/Shadow Hunter' },
-    { id: 'sun', name: 'Sky Spirit', cost: 2000, colorBody: '#fff', colorFin: '#48CAE4', size: 35, speed: 3.0, finType: 'flowing', personality: 'majestic, ancient, and noble', soundPitch: 1.8, imagePath: 'assets/fish/Sky Spirit' },
-    { id: 'lord', name: 'River Lord', cost: 5000, colorBody: '#4A5568', colorFin: '#2D3748', size: 60, speed: 1.2, finType: 'flowing', personality: 'massive, slow, and insatiable', isPredator: true, soundPitch: 0.4, imagePath: 'assets/fish/River Lord' },
-    { id: 'rainbow', name: 'Rainbow Spirit', cost: 10000, colorBody: '#9370DB', colorFin: '#00FFFF', size: 45, speed: 3.5, finType: 'flowing', personality: 'colorful and radiant', soundPitch: 2.0, imagePath: 'assets/fish/Rainbow Spirit' }
+    { 
+        id: 'basic', name: 'River Spirit', cost: 100, 
+        colorBody: '#E86F51', colorFin: '#F4A261', size: 15, speed: 2.5, 
+        finType: 'simple', personality: 'curious and bubbly', soundPitch: 1.0, 
+        imagePath: 'assets/fish/River Spirit', folder: 'River Spirit',
+        description: 'A curious spirit with a bubbly personality'
+    },
+    { 
+        id: 'starbit', name: 'Star Bit Guppy', cost: 250, 
+        colorBody: '#FFD93D', colorFin: '#FFF', size: 10, speed: 4.0, 
+        finType: 'simple', personality: 'energetic, starlike, and fast', soundPitch: 1.5, 
+        imagePath: 'assets/fish/Star Bit Guppy', folder: 'Star Bit Guppy',
+        description: 'A tiny, fast spirit that twinkles like starlight'
+    },
+    { 
+        id: 'kodama', name: 'Kodama Tetra', cost: 350, 
+        colorBody: '#F1FAEE', colorFin: '#A8DADC', size: 12, speed: 3.5, 
+        finType: 'glow', personality: 'playful, clicking, and mysterious', soundPitch: 1.2, 
+        imagePath: 'assets/fish/Kodama Tetra', folder: 'Kodama Tetra',
+        description: 'A mysterious forest spirit that clicks and hides'
+    },
+    { 
+        id: 'forest', name: 'Mossy Carp', cost: 800, 
+        colorBody: '#457B9D', colorFin: '#1D3557', size: 25, speed: 1.8, 
+        finType: 'flowing', personality: 'slow, wise, and sleepy', soundPitch: 0.8, 
+        imagePath: 'assets/fish/Mossy Carp', folder: 'Mossy Carp',
+        description: 'A wise old spirit covered in ancient moss'
+    },
+    { 
+        id: 'hunter', name: 'Shadow Hunter', cost: 1200, 
+        colorBody: '#2C3E50', colorFin: '#E74C3C', size: 30, speed: 3.8, 
+        finType: 'fancy', personality: 'aggressive, hunting, and sharp', 
+        isPredator: true, soundPitch: 0.6, 
+        imagePath: 'assets/fish/Shadow Hunter', folder: 'Shadow Hunter',
+        description: 'A fierce predator that stalks the shadows'
+    },
+    { 
+        id: 'sun', name: 'Sky Spirit', cost: 2000, 
+        colorBody: '#fff', colorFin: '#48CAE4', size: 35, speed: 3.0, 
+        finType: 'flowing', personality: 'majestic, ancient, and noble', soundPitch: 1.8, 
+        imagePath: 'assets/fish/Sky Spirit', folder: 'Sky Spirit',
+        description: 'A majestic spirit that embodies the sky'
+    },
+    { 
+        id: 'lord', name: 'River Lord', cost: 5000, 
+        colorBody: '#4A5568', colorFin: '#2D3748', size: 60, speed: 1.2, 
+        finType: 'flowing', personality: 'massive, slow, and insatiable', 
+        isPredator: true, soundPitch: 0.4, 
+        imagePath: 'assets/fish/River Lord', folder: 'River Lord',
+        description: 'An ancient giant with an endless appetite'
+    },
+    { 
+        id: 'rainbow', name: 'Rainbow Spirit', cost: 10000, 
+        colorBody: '#9370DB', colorFin: '#00FFFF', size: 45, speed: 3.5, 
+        finType: 'flowing', personality: 'colorful and radiant', soundPitch: 2.0, 
+        imagePath: 'assets/fish/Rainbow Spirit', folder: 'Rainbow Spirit',
+        description: 'A radiant spirit that paints the water with colors'
+    }
 ];
 
