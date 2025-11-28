@@ -54,25 +54,56 @@ export function initUI(species, callbacks = {}) {
 }
 
 function setupEventListeners() {
-    // Helper to stop event propagation
-    const handleClick = (handler) => (e) => {
-        e.stopPropagation();
-        handler(e);
-    };
-    
     // Score pill opens settings
-    document.getElementById('scorePill').addEventListener('click', handleClick(openSettings));
+    document.getElementById('scorePill').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openSettings();
+    });
     
-    // Control buttons
-    document.getElementById('autoFeedBtn').addEventListener('click', handleClick(toggleAutoFeed));
-    document.getElementById('talkBtn').addEventListener('click', handleClick(toggleTalkMode));
-    document.getElementById('memoriesBtn').addEventListener('click', handleClick(openMemories));
-    document.getElementById('shopBtn').addEventListener('click', handleClick(openShop));
+    // Control buttons - using direct handlers with stopPropagation
+    document.getElementById('autoFeedBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleAutoFeed();
+    });
+    
+    document.getElementById('talkBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleTalkMode();
+    });
+    
+    document.getElementById('memoriesBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openMemories();
+    });
+    
+    document.getElementById('shopBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openShop();
+    });
     
     // Settings
-    document.getElementById('debugToggle').addEventListener('click', handleClick(toggleDebug));
-    document.getElementById('restartBtn').addEventListener('click', handleClick(showRestartConfirm));
-    document.getElementById('confirmRestartBtn').addEventListener('click', handleClick(confirmRestart));
+    document.getElementById('debugToggle').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleDebug();
+    });
+    
+    document.getElementById('restartBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showRestartConfirm();
+    });
+    
+    document.getElementById('confirmRestartBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        confirmRestart();
+    });
     
     // Time slider
     setupTimeSlider();
@@ -87,14 +118,6 @@ function setupEventListeners() {
     document.getElementById('memoriesOverlay').addEventListener('click', (e) => {
         if (e.target.id === 'memoriesOverlay') closeMemories();
     });
-    
-    // Stop propagation on the entire bottom bar to prevent canvas from receiving clicks
-    document.querySelector('.bottom-bar').addEventListener('mousedown', (e) => {
-        e.stopPropagation();
-    });
-    document.querySelector('.bottom-bar').addEventListener('touchstart', (e) => {
-        e.stopPropagation();
-    }, { passive: true });
 }
 
 // ===== Toast Notifications =====

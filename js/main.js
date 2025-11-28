@@ -49,18 +49,12 @@ function init() {
     window.addEventListener('resize', resize);
     resize();
 
-    canvas.addEventListener('mousedown', (e) => {
-        // Only handle if click is directly on canvas (not bubbled from UI)
-        if (e.target === canvas) {
-            handleInput(e);
-        }
-    });
-    canvas.addEventListener('touchstart', (e) => {
-        // Only handle touch if it's directly on the canvas
-        if (e.target === canvas) {
-            e.preventDefault();
-            handleInput(e.touches[0]);
-        }
+    // Use the game container for input - it's below the UI layer
+    const gameContainer = document.getElementById('game-container');
+    gameContainer.addEventListener('mousedown', handleInput);
+    gameContainer.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handleInput(e.touches[0]);
     }, { passive: false });
 
     canvas.addEventListener('mousemove', (e) => {
