@@ -54,19 +54,25 @@ export function initUI(species, callbacks = {}) {
 }
 
 function setupEventListeners() {
+    // Helper to stop event propagation
+    const handleClick = (handler) => (e) => {
+        e.stopPropagation();
+        handler(e);
+    };
+    
     // Score pill opens settings
-    document.getElementById('scorePill').addEventListener('click', openSettings);
+    document.getElementById('scorePill').addEventListener('click', handleClick(openSettings));
     
     // Control buttons
-    document.getElementById('autoFeedBtn').addEventListener('click', toggleAutoFeed);
-    document.getElementById('talkBtn').addEventListener('click', toggleTalkMode);
-    document.getElementById('memoriesBtn').addEventListener('click', openMemories);
-    document.getElementById('shopBtn').addEventListener('click', openShop);
+    document.getElementById('autoFeedBtn').addEventListener('click', handleClick(toggleAutoFeed));
+    document.getElementById('talkBtn').addEventListener('click', handleClick(toggleTalkMode));
+    document.getElementById('memoriesBtn').addEventListener('click', handleClick(openMemories));
+    document.getElementById('shopBtn').addEventListener('click', handleClick(openShop));
     
     // Settings
-    document.getElementById('debugToggle').addEventListener('click', toggleDebug);
-    document.getElementById('restartBtn').addEventListener('click', showRestartConfirm);
-    document.getElementById('confirmRestartBtn').addEventListener('click', confirmRestart);
+    document.getElementById('debugToggle').addEventListener('click', handleClick(toggleDebug));
+    document.getElementById('restartBtn').addEventListener('click', handleClick(showRestartConfirm));
+    document.getElementById('confirmRestartBtn').addEventListener('click', handleClick(confirmRestart));
     
     // Time slider
     setupTimeSlider();
@@ -81,6 +87,14 @@ function setupEventListeners() {
     document.getElementById('memoriesOverlay').addEventListener('click', (e) => {
         if (e.target.id === 'memoriesOverlay') closeMemories();
     });
+    
+    // Stop propagation on the entire bottom bar to prevent canvas from receiving clicks
+    document.querySelector('.bottom-bar').addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+    });
+    document.querySelector('.bottom-bar').addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+    }, { passive: true });
 }
 
 // ===== Toast Notifications =====
