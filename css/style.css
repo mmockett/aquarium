@@ -370,7 +370,8 @@ body, html {
 .modal-sheet {
     width: 100%;
     max-width: 500px;
-    max-height: 85vh;
+    max-height: 70vh;
+    max-height: min(70vh, calc(100dvh - 120px));
     background: linear-gradient(
         180deg,
         rgba(38, 38, 42, 0.98) 0%,
@@ -1065,7 +1066,8 @@ body.ui-hidden #idlePrompt {
     }
     
     .modal-sheet {
-        max-height: 90vh;
+        max-height: 60vh;
+        max-height: min(60vh, calc(100dvh - 100px));
         border-radius: 16px 16px 0 0;
     }
 }
