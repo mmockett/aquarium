@@ -84,9 +84,22 @@ function setupEventListeners() {
 }
 
 // ===== Toast Notifications =====
-export function showToast(message, icon = '✨', duration = 2500) {
+// Icon can be a Lucide icon name (string without emoji) or an emoji
+export function showToast(message, icon = 'sparkles', duration = 2500) {
     const toast = document.getElementById('toast');
-    toast.querySelector('.toast-icon').textContent = icon;
+    const iconEl = toast.querySelector('.toast-icon');
+    
+    // Check if icon is a Lucide icon name (no emoji characters)
+    const isLucideIcon = /^[a-z-]+$/.test(icon);
+    
+    if (isLucideIcon) {
+        iconEl.innerHTML = `<i data-lucide="${icon}" class="icon-toast"></i>`;
+        refreshIcons();
+    } else {
+        // Fallback to emoji/text
+        iconEl.innerHTML = icon;
+    }
+    
     toast.querySelector('.toast-message').textContent = message;
     toast.classList.add('show');
     
@@ -118,7 +131,7 @@ function toggleAutoFeed() {
     
     showToast(
         gameState.autoFeed ? 'Autofeed On – Fish will be fed automatically' : 'Autofeed Off – Tap to drop food',
-        '🍂'
+        'leaf'
     );
     
     saveState();
@@ -136,7 +149,7 @@ function toggleTalkMode() {
     
     showToast(
         gameState.talkMode ? 'Spirit Mode On – Tap fish to hear them speak' : 'Spirit Mode Off – Tap to drop food',
-        '✨'
+        'sparkles'
     );
     
     saveState();
@@ -178,9 +191,11 @@ function renderBackgroundList() {
                 <img src="assets/backgrounds/${bg.file}" alt="${bg.name}">
             </div>
             <span class="settings-item-label">${bg.name}</span>
-            ${gameState.selectedBackground === bg.id ? '<span class="settings-item-check">✓</span>' : ''}
+            ${gameState.selectedBackground === bg.id ? '<i data-lucide="check-circle" class="settings-item-check icon-sm"></i>' : ''}
         </div>
     `).join('');
+    
+    refreshIcons();
     
     // Add click handlers
     list.querySelectorAll('.settings-item').forEach(item => {
@@ -308,7 +323,7 @@ function renderShop() {
                     </div>
                     <div class="shop-item-details">
                         <span>${species.description || 'A mysterious spirit'}</span>
-                        ${aliveCount > 0 ? `<span class="alive-count">🐟 ${aliveCount} alive</span>` : ''}
+                        ${aliveCount > 0 ? `<span class="alive-count"><i data-lucide="fish" class="icon-xs"></i> ${aliveCount} alive</span>` : ''}
                     </div>
                 </div>
             </div>
@@ -322,7 +337,7 @@ function renderShop() {
         const needed = next.cost - gameState.score;
         html += `
             <div class="unlock-hint">
-                <div class="unlock-hint-icon">🔒</div>
+                <div class="unlock-hint-icon"><i data-lucide="lock" class="icon-sm"></i></div>
                 <div class="unlock-hint-text">More Species Locked</div>
                 <div class="unlock-hint-next">
                     Next: <strong>${next.name}</strong> • ${needed} more orbs needed
@@ -332,6 +347,7 @@ function renderShop() {
     }
     
     content.innerHTML = html;
+    refreshIcons();
     
     // Add click handlers
     content.querySelectorAll('.shop-item:not(.locked)').forEach(item => {
@@ -353,7 +369,7 @@ function purchaseSpecies(speciesId) {
     if (!gameState.unlockedSpecies) gameState.unlockedSpecies = new Set();
     gameState.unlockedSpecies.add(speciesId);
     
-    showToast(`Summoned ${species.name}!`, '✨');
+    showToast(`Summoned ${species.name}!`, 'sparkles');
     
     if (onPurchase) onPurchase(speciesId);
     saveState();
@@ -399,10 +415,11 @@ function renderMemories() {
     if (gameState.spiritEvents.length === 0) {
         list.innerHTML = `
             <div class="empty-state">
-                <div class="empty-state-icon">💗</div>
+                <div class="empty-state-icon"><i data-lucide="heart" class="icon-lg"></i></div>
                 <div class="empty-state-text">No events yet</div>
             </div>
         `;
+        refreshIcons();
         return;
     }
     
@@ -416,12 +433,12 @@ function renderMemories() {
                     <div class="event-icon death">
                         ${thumbPath 
                             ? `<img src="${thumbPath}" alt="${event.speciesName}">`
-                            : '<span class="event-icon-fallback">💔</span>'
+                            : '<i data-lucide="heart-crack" class="icon-event"></i>'
                         }
                     </div>
                     <div class="event-info">
                         <div class="event-title">
-                            <span class="event-title-icon death">💔</span>
+                            <i data-lucide="heart-crack" class="icon-title death"></i>
                             <span>${event.name}</span>
                         </div>
                         <div class="event-details">
@@ -436,12 +453,12 @@ function renderMemories() {
                     <div class="event-icon birth">
                         ${thumbPath 
                             ? `<img src="${thumbPath}" alt="${event.speciesName}">`
-                            : '<span class="event-icon-fallback">✨</span>'
+                            : '<i data-lucide="sparkles" class="icon-event"></i>'
                         }
                     </div>
                     <div class="event-info">
                         <div class="event-title">
-                            <span class="event-title-icon birth">✨</span>
+                            <i data-lucide="sparkles" class="icon-title birth"></i>
                             <span>${event.babies.join(', ')} was born!</span>
                         </div>
                         <div class="event-details">
@@ -452,6 +469,8 @@ function renderMemories() {
             `;
         }
     }).join('');
+    
+    refreshIcons();
 }
 
 function updateMemoriesBadge() {
@@ -546,7 +565,7 @@ function confirmRestart() {
     
     if (onRestart) onRestart();
     
-    showToast('Game restarted', '↺');
+    showToast('Game restarted', 'rotate-ccw');
 }
 
 // ===== Persistence =====
@@ -604,4 +623,11 @@ export function getState() {
 // ===== Help (legacy compatibility) =====
 export function toggleHelp() {
     openSettings();
+}
+
+// ===== Lucide Icons Helper =====
+function refreshIcons() {
+    if (window.lucide) {
+        window.lucide.createIcons();
+    }
 }

@@ -147,7 +147,7 @@ export class Fish {
         this.childrenCount = 0; // Track number of offspring
         this.facingLeft = this.vel.x < 0; // Track facing direction for smooth turns
         this.visualAngle = this.angle; // Decoupled visual rotation for smoothing
-        this.isSleeping = false;
+        this.isDrowsy = false; // Slower movement at night
 
         this.generateName();
     }
@@ -179,7 +179,7 @@ export class Fish {
         const numOffspring = Math.floor(rand(1, 4)); 
         const spawnPos = new Vector((this.pos.x + mate.pos.x) / 2, (this.pos.y + mate.pos.y) / 2);
         
-        world.showToast(`New Spirits! ${this.name} and ${mate.name} welcome ${numOffspring} babies.`, '✨');
+        world.showToast(`New Spirits! ${this.name} and ${mate.name} welcome ${numOffspring} babies.`, 'sparkles');
         world.sound.playChime(); 
 
         const babyNames = [];
@@ -485,19 +485,12 @@ export class Fish {
         } else {
             // Only compute complex behaviors every 5 frames instead of 3
             if (frameCount % 5 === this.aiOffset) {
-                // Night Time Logic
-                if (world.isNight && !this.species.isPredator && !this.isFleeing && !this.romanceTarget && !target) {
-                    this.isSleeping = true;
-                } else {
-                    this.isSleeping = false;
-                }
+                // Night time - fish are "drowsy" but still move (unless actively doing something)
+                const isUrgent = target || this.isFleeing || this.huntingTarget || this.tantrumTarget || this.romanceTarget;
+                this.isDrowsy = world.isNight && !this.species.isPredator && !isUrgent;
 
                 this.computeBehaviors(world);
-                if (this.isSleeping) {
-                    this.drift(world);
-                } else {
-                    this.wander(world);
-                }
+                this.wander(world);
                 this.boundaries(world.width, world.height);
             }
         }
@@ -515,12 +508,16 @@ export class Fish {
         speedMod *= energyFactor;
         speedMod *= this.digestionSlowdown;
 
+        // Night time: move at 30% speed unless doing something urgent
+        const isUrgentNow = target || this.isFleeing || this.huntingTarget || this.tantrumTarget;
+        if (this.isDrowsy && !isUrgentNow) {
+            speedMod *= 0.3; // 30% speed at night
+        }
+
         // Allow burst speed for Urgent behaviors (Feeding, Fleeing, Hunting, Fighting)
         let burst = 1.0;
-        if (target || this.isFleeing || this.huntingTarget || this.tantrumTarget) {
+        if (isUrgentNow) {
             burst = 2.5;
-        } else if (this.isSleeping) {
-            burst = 0.1; // Very slow when sleeping (10% speed)
         }
 
         this.vel.limit(this.maxSpeed * burst * speedMod);
@@ -533,13 +530,8 @@ export class Fish {
         if (this.pos.y < this.size) { this.pos.y = this.size; this.vel.y *= -0.8; }
         if (this.pos.y > world.height - this.size) { this.pos.y = world.height - this.size; this.vel.y *= -0.8; }
         
-        let desiredAngle;
-        if (this.isSleeping) {
-             // When sleeping, just face horizontally, maybe slightly tilted
-             desiredAngle = this.facingLeft ? Math.PI : 0;
-        } else {
-             desiredAngle = Math.atan2(this.vel.y, this.vel.x);
-        }
+        // Always face direction of movement
+        let desiredAngle = Math.atan2(this.vel.y, this.vel.x);
         let diff = desiredAngle - this.angle;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
@@ -577,18 +569,6 @@ export class Fish {
         let h = Math.sin(t) * wanderR;
         let target = new Vector(circlePos.x + Math.cos(t)*20, circlePos.y + h);
         this.seek(target);
-    }
-
-    drift(world) {
-        // Sleepy drifting logic - tend towards bottom
-        let targetY = world.height * 0.85;
-        let driftForce = new Vector(0, (targetY - this.pos.y) * 0.001);
-        
-        // Gentle random movement
-        let t = world.now * 0.0005 + this.pos.x;
-        driftForce.x += Math.sin(t) * 0.05;
-        
-        this.acc.add(driftForce);
     }
 
     boundaries(width, height) {
@@ -646,20 +626,20 @@ export class Fish {
         if (this.chatText && !this.isDead && this.size > 0) {
             ctx.save();
             ctx.translate(0, -this.size * 2 - 20);
-            ctx.font = "16px 'Patrick Hand'";
+            ctx.font = "500 14px 'Inter', -apple-system, sans-serif";
             let metrics = ctx.measureText(this.chatText);
-            let w = metrics.width + 20;
-            let h = 30;
-            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+            let w = metrics.width + 24;
+            let h = 32;
+            ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
             ctx.beginPath();
-            ctx.roundRect(-w/2, -h/2, w, h, 10);
+            ctx.roundRect(-w/2, -h/2, w, h, 12);
             ctx.fill();
             ctx.beginPath();
             ctx.moveTo(-5, h/2);
             ctx.lineTo(5, h/2);
             ctx.lineTo(0, h/2 + 6);
             ctx.fill();
-            ctx.fillStyle = "#333";
+            ctx.fillStyle = "#1a1a1a";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText(this.chatText, 0, 0);
@@ -673,13 +653,13 @@ export class Fish {
             
             // Hunger Status
             let hungerStatus = "Full";
-            let hungerColor = "#4ADE80"; 
+            let hungerColor = "#34C759"; // accent-green
             if (this.energy < 30) {
                 hungerStatus = "Starving";
-                hungerColor = "#EF4444"; 
+                hungerColor = "#FF375F"; // accent-pink
             } else if (this.energy < 70) {
                 hungerStatus = "Hungry";
-                hungerColor = "#FCD34D"; 
+                hungerColor = "#FFD60A"; // accent-yellow
             }
 
             // Parent Status
@@ -687,14 +667,14 @@ export class Fish {
 
             // Draw Background
             const statsText = `${hungerStatus}${parentStatus ? ' • ' + parentStatus : ''}`;
-            ctx.font = "bold 12px 'Patrick Hand'";
+            ctx.font = "600 11px 'Inter', -apple-system, sans-serif";
             const metrics = ctx.measureText(statsText);
-            const bgW = metrics.width + 16;
-            const bgH = 20;
+            const bgW = metrics.width + 20;
+            const bgH = 24;
 
-            ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
             ctx.beginPath();
-            ctx.roundRect(-bgW/2, -bgH/2, bgW, bgH, 10);
+            ctx.roundRect(-bgW/2, -bgH/2, bgW, bgH, 12);
             ctx.fill();
 
             // Draw Text
@@ -711,12 +691,12 @@ export class Fish {
                 
                 const hungerWidth = ctx.measureText(hungerStatus).width;
                 
-                ctx.fillStyle = "#fff";
+                ctx.fillStyle = "rgba(255,255,255,0.5)";
                 ctx.fillText(" • ", startX + hungerWidth, 0);
                 
                 const separatorWidth = ctx.measureText(" • ").width;
                 
-                ctx.fillStyle = "#60A5FA";
+                ctx.fillStyle = "#0A84FF"; // accent-blue
                 ctx.fillText(parentStatus, startX + hungerWidth + separatorWidth, 0);
             } else {
                 ctx.fillStyle = hungerColor;
@@ -727,11 +707,12 @@ export class Fish {
 
         // Draw Name
         if (world.isTalkMode && !this.isDead && this.size > 0) {
-            ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-            ctx.font = "bold 14px 'Patrick Hand'";
+            ctx.font = "600 13px 'Inter', -apple-system, sans-serif";
             ctx.textAlign = "center";
-            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            // Shadow for readability
+            ctx.fillStyle = "rgba(0,0,0,0.4)";
             ctx.fillText(this.name, 1, this.size + 21);
+            // Main text
             ctx.fillStyle = "white";
             ctx.fillText(this.name, 0, this.size + 20);
         }
