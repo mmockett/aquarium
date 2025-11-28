@@ -269,7 +269,7 @@ function checkGameOver() {
     const state = UI.getState();
     if (fishes.length === 0 && state.score < 100) {
         // Show a toast instead of blocking overlay
-        UI.showToast('All spirits have departed. Tap Shop to summon more.', '💫', 4000);
+        UI.showToast('All spirits have departed. Tap Shop to summon more.', 'sparkles', 4000);
     }
 }
 

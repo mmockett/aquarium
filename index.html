@@ -7,6 +7,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Spirit Aquarium</title>
     <link rel="stylesheet" href="css/style.css">
+    <!-- Lucide Icons - Similar aesthetic to SF Symbols -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
@@ -37,13 +39,19 @@
 
             <!-- Right Control Group -->
             <div class="control-group glass">
-                <button id="autoFeedBtn" class="glass-btn green" title="Auto Feed">🍂</button>
-                <button id="talkBtn" class="glass-btn yellow" title="Spirit Mode">✨</button>
+                <button id="autoFeedBtn" class="glass-btn green" title="Auto Feed">
+                    <i data-lucide="leaf" class="icon"></i>
+                </button>
+                <button id="talkBtn" class="glass-btn yellow" title="Spirit Mode">
+                    <i data-lucide="sparkles" class="icon"></i>
+                </button>
                 <button id="memoriesBtn" class="glass-btn pink" title="Spirit Memories">
-                    💗
+                    <i data-lucide="heart" class="icon"></i>
                     <span id="memoriesBadge" class="badge" style="display: none;">0</span>
                 </button>
-                <button id="shopBtn" class="glass-btn blue" title="Shop">🛒</button>
+                <button id="shopBtn" class="glass-btn blue" title="Shop">
+                    <i data-lucide="shopping-cart" class="icon"></i>
+                </button>
             </div>
         </div>
     </div>
@@ -72,7 +80,7 @@
                         <div class="settings-slider">
                             <div class="slider-header">
                                 <span class="slider-label">
-                                    <span>🕐</span>
+                                    <i data-lucide="clock" class="icon-sm"></i>
                                     <span>Day/Night Cycle</span>
                                 </span>
                                 <span id="timeSpeedValue" class="slider-value">Normal</span>
@@ -95,7 +103,7 @@
                     <div class="settings-section-title">Developer</div>
                     <div class="settings-list">
                         <div class="settings-item" id="debugToggle">
-                            <span class="settings-item-icon">🐛</span>
+                            <span class="settings-item-icon"><i data-lucide="bug" class="icon-sm"></i></span>
                             <span class="settings-item-label">Show Debug Info</span>
                             <div id="debugSwitch" class="toggle-switch"></div>
                         </div>
@@ -106,7 +114,7 @@
                 <!-- Restart Game -->
                 <div class="settings-section">
                     <button class="danger-btn" id="restartBtn">
-                        <span>↺</span>
+                        <i data-lucide="rotate-ccw" class="icon-sm"></i>
                         <span>Restart Game</span>
                     </button>
                     <div class="settings-section-footer">Removes all fish and resets progress.</div>
@@ -142,21 +150,21 @@
                 <div class="stats-row">
                     <div class="stat-pill">
                         <div class="stat-value">
-                            <span>🐟</span>
+                            <i data-lucide="fish" class="icon-stat blue"></i>
                             <span id="statAlive">0</span>
                         </div>
                         <div class="stat-label">Alive</div>
                     </div>
                     <div class="stat-pill">
                         <div class="stat-value">
-                            <span>✨</span>
+                            <i data-lucide="sparkles" class="icon-stat yellow"></i>
                             <span id="statBorn">0</span>
                         </div>
                         <div class="stat-label">Born</div>
                     </div>
                     <div class="stat-pill">
                         <div class="stat-value">
-                            <span>💔</span>
+                            <i data-lucide="heart-crack" class="icon-stat pink"></i>
                             <span id="statPassed">0</span>
                         </div>
                         <div class="stat-label">Passed</div>
@@ -182,5 +190,13 @@
     <div id="confirmBackdrop" class="modal-overlay" onclick="closeConfirm()"></div>
 
     <script type="module" src="js/main.js"></script>
+    <script>
+        // Initialize Lucide icons after DOM loads
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        });
+    </script>
 </body>
 </html>
