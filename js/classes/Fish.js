@@ -160,6 +160,26 @@ export class Fish {
         else this.name = FALLBACK_NAMES[Math.floor(Math.random() * FALLBACK_NAMES.length)];
     }
 
+    formatAge(ageMs) {
+        const seconds = Math.floor(ageMs / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+        
+        if (days > 0) {
+            const remainingHours = hours % 24;
+            return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+        } else if (hours > 0) {
+            const remainingMinutes = minutes % 60;
+            return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+        } else if (minutes > 0) {
+            const remainingSeconds = seconds % 60;
+            return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+        } else {
+            return `${seconds}s`;
+        }
+    }
+
     async talk() {
         if (this.isTalking || this.isDead) return;
         this.isTalking = true;
@@ -219,19 +239,19 @@ export class Fish {
         let sepCount = 0, aliCount = 0, cohCount = 0;
         this.isFleeing = false; // Reset flee state
         
-        const desiredSeparationSq = (40 + this.size)**2;
-        const neighborDistSq = 100**2;
+        const desiredSeparationSq = (20 + this.size)**2;  // Reduced base from 40 for smaller fish
+        const neighborDistSq = 60**2;  // Reduced from 100 for tighter schooling
         
         let closestPrey = null;
         let closestPreyDistSq = Infinity;
-        const huntRangeSq = 250**2;
+        const huntRangeSq = 150**2;  // Reduced from 250 for smaller fish
         
         let fleeVector = new Vector(0, 0);
-        const fleeRangeSq = 150**2;
+        const fleeRangeSq = 100**2;  // Reduced from 150 for smaller fish
         
         let nearestRival = null;
         let nearestRivalDistSq = Infinity;
-        const tantrumRangeSq = 200**2;
+        const tantrumRangeSq = 120**2;  // Reduced from 200 for smaller fish
 
         const amPredator = this.species.isPredator;
         const amPrey = !amPredator;
@@ -400,7 +420,7 @@ export class Fish {
                             other.energy >= 80 && 
                             world.now - other.birthTime > maturityAge && 
                             world.now - other.lastReproductionTime > minCooldown &&
-                            distSq(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 300**2 
+                            distSq(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < 150**2  // Reduced from 300 for smaller fish 
                          );
                          if (potentialMate) this.romanceTarget = potentialMate;
                      }
@@ -408,7 +428,7 @@ export class Fish {
             }
 
             if (this.romanceTarget) {
-                 if (this.romanceTarget.isDead || this.energy < 80 || Vector.distSq(this.pos, this.romanceTarget.pos) > 300**2) {
+                 if (this.romanceTarget.isDead || this.energy < 80 || Vector.distSq(this.pos, this.romanceTarget.pos) > 150**2) {  // Reduced from 300
                      this.romanceTarget = null;
                  }
             }
@@ -431,7 +451,7 @@ export class Fish {
             } else {
                 const distToPreySq = Vector.distSq(this.pos, this.huntingTarget.pos);
                 // Give up if prey is too far or chase has gone on too long (10 seconds)
-                if (distToPreySq > 400**2 || (world.now - this.huntStartTime > 10000)) {
+                if (distToPreySq > 200**2 || (world.now - this.huntStartTime > 10000)) {  // Reduced from 400
                     this.huntingTarget = null;
                     this.huntStartTime = 0;
                 } 
@@ -470,7 +490,7 @@ export class Fish {
         let target = null;
         let closestDistSq = Infinity;
         let closestFood = null;
-        let searchRadSq = 300**2;
+        let searchRadSq = 150**2;  // Reduced from 300 for smaller fish
 
         if (!this.tantrumTarget && this.fullCooldown <= 0) {
             for (let f of world.foodList) {
@@ -555,12 +575,12 @@ export class Fish {
         while (diff > Math.PI) diff -= Math.PI * 2;
         
         // Slower turns for larger fish to prevent "shaky" look
-        const turnSpeedMod = Math.max(0.2, 15 / this.size); 
+        const turnSpeedMod = Math.max(0.2, 8 / this.size);  // Adjusted from 15 for smaller fish 
         this.angle += diff * CONFIG.physics.turnSpeed * turnSpeedMod;
 
         let speedPct = this.vel.mag() / (this.maxSpeed || 1);
         // Scale wiggle frequency by size (larger fish = slower beat)
-        const sizeFreqMod = Math.max(1, this.size / 20);
+        const sizeFreqMod = Math.max(1, this.size / 10);  // Adjusted from /20 for smaller fish
         this.tailSpeed = (0.1 + (speedPct * 0.3)) / Math.sqrt(sizeFreqMod);
         this.tailAngle += this.tailSpeed;
 
@@ -577,7 +597,7 @@ export class Fish {
     }
 
     wander(world) {
-        let wanderR = 50;
+        let wanderR = 30;  // Reduced from 50 for smaller fish
         let wanderD = 100;
         let circlePos = new Vector(this.vel.x, this.vel.y);
         circlePos.normalize();
@@ -635,7 +655,7 @@ export class Fish {
         let isHovered = false;
         if (world.isTalkMode && world.mousePos) {
             const dSq = distSq(this.pos.x, this.pos.y, world.mousePos.x, world.mousePos.y);
-            if (dSq < (this.size + 20)**2) {
+            if (dSq < (this.size + 10)**2) {  // Reduced padding from 20 for smaller fish
                 isHovered = true;
             }
         }
@@ -664,75 +684,75 @@ export class Fish {
             ctx.restore();
         }
 
-        // Draw Stats on Hover
+        // Draw Extra Stats on Hover (Parent status, species info)
         if (isHovered && !this.isDead && this.size > 0) {
             ctx.save();
-            ctx.translate(0, this.size + 40);
+            ctx.translate(0, this.size + 50);
             
-            // Hunger Status
-            let hungerStatus = "Full";
-            let hungerColor = "#34C759"; // accent-green
-            if (this.energy < 30) {
-                hungerStatus = "Starving";
-                hungerColor = "#FF375F"; // accent-pink
-            } else if (this.energy < 70) {
-                hungerStatus = "Hungry";
-                hungerColor = "#FFD60A"; // accent-yellow
+            // Build stats text
+            const stats = [];
+            if (this.childrenCount > 0) {
+                stats.push(`${this.childrenCount} offspring`);
             }
-
-            // Parent Status
-            const parentStatus = this.childrenCount > 0 ? "Parent" : "";
-
-            // Draw Background
-            const statsText = `${hungerStatus}${parentStatus ? ' • ' + parentStatus : ''}`;
-            ctx.font = "600 11px 'Inter', -apple-system, sans-serif";
-            const metrics = ctx.measureText(statsText);
-            const bgW = metrics.width + 20;
-            const bgH = 24;
-
-            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-            ctx.beginPath();
-            ctx.roundRect(-bgW/2, -bgH/2, bgW, bgH, 12);
-            ctx.fill();
-
-            // Draw Text
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
+            if (this.species.isPredator) {
+                stats.push("🦈 Predator");
+            }
             
-            if (parentStatus) {
-                const fullWidth = metrics.width;
-                const startX = -fullWidth / 2;
-                
-                ctx.textAlign = "left";
-                ctx.fillStyle = hungerColor;
-                ctx.fillText(hungerStatus, startX, 0);
-                
-                const hungerWidth = ctx.measureText(hungerStatus).width;
-                
-                ctx.fillStyle = "rgba(255,255,255,0.5)";
-                ctx.fillText(" • ", startX + hungerWidth, 0);
-                
-                const separatorWidth = ctx.measureText(" • ").width;
-                
-                ctx.fillStyle = "#0A84FF"; // accent-blue
-                ctx.fillText(parentStatus, startX + hungerWidth + separatorWidth, 0);
-            } else {
-                ctx.fillStyle = hungerColor;
-                ctx.fillText(hungerStatus, 0, 0);
+            // Only show if there's something to display
+            if (stats.length > 0) {
+                const statsText = stats.join(' • ');
+                ctx.font = "500 10px 'Inter', -apple-system, sans-serif";
+                const metrics = ctx.measureText(statsText);
+                const bgW = metrics.width + 16;
+                const bgH = 20;
+
+                ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+                ctx.beginPath();
+                ctx.roundRect(-bgW/2, -bgH/2, bgW, bgH, 10);
+                ctx.fill();
+
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "rgba(255,255,255,0.9)";
+                ctx.fillText(statsText, 0, 0);
             }
             ctx.restore();
         }
 
-        // Draw Name
+        // Draw Name, Age, and Hunger Status (like Swift version)
         if (world.isTalkMode && !this.isDead && this.size > 0) {
-            ctx.font = "600 13px 'Inter', -apple-system, sans-serif";
+            // Calculate age
+            const ageMs = world.now - this.birthTime;
+            const ageText = this.formatAge(ageMs);
+            
+            // Calculate hunger status
+            let hungerStatus = "Full";
+            let hungerColor = "#34C759"; // green
+            if (this.energy < 30) {
+                hungerStatus = "Starving";
+                hungerColor = "#FF375F"; // pink/red
+            } else if (this.energy < 70) {
+                hungerStatus = "Hungry";
+                hungerColor = "#FFD60A"; // yellow
+            }
+            
+            const nameAndAge = `${this.name} • ${ageText}`;
+            
+            ctx.font = "600 12px 'Inter', -apple-system, sans-serif";
             ctx.textAlign = "center";
-            // Shadow for readability
+            
+            // Line 1: Name • Age (with shadow)
             ctx.fillStyle = "rgba(0,0,0,0.4)";
-            ctx.fillText(this.name, 1, this.size + 21);
-            // Main text
+            ctx.fillText(nameAndAge, 1, this.size + 16);
             ctx.fillStyle = "white";
-            ctx.fillText(this.name, 0, this.size + 20);
+            ctx.fillText(nameAndAge, 0, this.size + 15);
+            
+            // Line 2: Hunger status (colored, with shadow)
+            ctx.font = "600 11px 'Inter', -apple-system, sans-serif";
+            ctx.fillStyle = "rgba(0,0,0,0.4)";
+            ctx.fillText(hungerStatus, 1, this.size + 31);
+            ctx.fillStyle = hungerColor;
+            ctx.fillText(hungerStatus, 0, this.size + 30);
         }
         ctx.restore();
 
@@ -748,8 +768,8 @@ export class Fish {
         while (diff > Math.PI) diff -= Math.PI * 2;
         
         // Smoothing factor: Lower = smoother/slower. 
-        // Scale by size: Large fish (60) get 0.05, Small fish (15) get 0.2
-        const smoothFactor = Math.max(0.05, 3.0 / this.size);
+        // Scale by size: Large fish (30) get 0.05, Small fish (5) get 0.3
+        const smoothFactor = Math.max(0.05, 1.5 / this.size);
         this.visualAngle += diff * smoothFactor;
 
         // Update facing direction with hysteresis based on visualAngle to prevent jitter
@@ -849,9 +869,9 @@ export class Fish {
 
         // Calculate animation values (in radians)
         // Scale amplitude by size: Larger fish = Smaller amplitude to look heavier
-        // Standard amplitude is 0.2 / 0.1. For River Lord (60), we want maybe 50% of that.
-        // Small fish (15) -> factor 1. Large (60) -> factor 2 or 3.
-        const ampScale = Math.max(1, this.size / 20);
+        // Standard amplitude is 0.2 / 0.1. For River Lord (30), we want maybe 50% of that.
+        // Small fish (5) -> factor 1. Large (30) -> factor 2 or 3.
+        const ampScale = Math.max(1, this.size / 10);  // Adjusted from /20 for smaller fish
         
         const tailWag = this.isDead ? 0 : Math.sin(this.tailAngle) * (0.2 / Math.sqrt(ampScale)); 
         const finWag = this.isDead ? 0 : Math.cos(this.tailAngle) * (0.1 / Math.sqrt(ampScale)); 
