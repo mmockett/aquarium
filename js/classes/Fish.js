@@ -134,6 +134,7 @@ export class Fish {
         this.romanceTarget = null; 
         this.huntingTarget = null;
         this.tantrumTarget = null; 
+        this.huntStartTime = 0; // Track when hunt started to prevent infinite chases
 
         this.aiOffset = Math.floor(Math.random() * 3);
 
@@ -336,6 +337,10 @@ export class Fish {
             }
 
             if (amPredator && closestPrey) {
+                 // Start hunt timer if this is a new target
+                 if (this.huntingTarget !== closestPrey) {
+                     this.huntStartTime = world.now;
+                 }
                  this.huntingTarget = closestPrey; 
                  let desired = Vector.sub(closestPrey.pos, this.pos);
                  desired.normalize();
@@ -419,18 +424,31 @@ export class Fish {
         }
 
         if (this.species.isPredator && this.huntingTarget && !this.tantrumTarget) {
-            if (this.huntingTarget.isDead || Vector.distSq(this.pos, this.huntingTarget.pos) > 400**2) {
+            // Safety check: ensure hunting target still exists and has valid position
+            if (!this.huntingTarget.pos || this.huntingTarget.isDead) {
                 this.huntingTarget = null;
-            } else if (Vector.distSq(this.pos, this.huntingTarget.pos) < (this.size * 0.8)**2) {
-                this.huntingTarget.isDead = true;
-                this.huntingTarget.deathReason = `Eaten by ${this.name}`;
-                this.huntingTarget.isEaten = true;
-                this.feed(world);
-                world.sound.playBloop(0.5); 
-                this.huntingTarget = null;
+                this.huntStartTime = 0;
+            } else {
+                const distToPreySq = Vector.distSq(this.pos, this.huntingTarget.pos);
+                // Give up if prey is too far or chase has gone on too long (10 seconds)
+                if (distToPreySq > 400**2 || (world.now - this.huntStartTime > 10000)) {
+                    this.huntingTarget = null;
+                    this.huntStartTime = 0;
+                } 
+                // Catch prey - use combined sizes for more reliable catching
+                else if (distToPreySq < (this.size + this.huntingTarget.size)**2) {
+                    this.huntingTarget.isDead = true;
+                    this.huntingTarget.deathReason = `Eaten by ${this.name}`;
+                    this.huntingTarget.isEaten = true;
+                    this.feed(world);
+                    world.sound.playBloop(0.5); 
+                    this.huntingTarget = null;
+                    this.huntStartTime = 0;
+                }
             }
         } else if (this.tantrumTarget) {
             this.huntingTarget = null;
+            this.huntStartTime = 0;
         }
 
         if (this.isDead) {
