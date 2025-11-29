@@ -108,7 +108,7 @@ function setupEventListeners() {
     // Time slider
     setupTimeSlider();
     
-    // Close modals on overlay click
+    // Close modals on overlay click (only if clicking the overlay itself, not content)
     document.getElementById('settingsOverlay').addEventListener('click', (e) => {
         if (e.target.id === 'settingsOverlay') closeSettings();
     });
@@ -117,6 +117,13 @@ function setupEventListeners() {
     });
     document.getElementById('memoriesOverlay').addEventListener('click', (e) => {
         if (e.target.id === 'memoriesOverlay') closeMemories();
+    });
+    
+    // Prevent clicks inside modal sheets from bubbling to overlay
+    document.querySelectorAll('.modal-sheet').forEach(sheet => {
+        sheet.addEventListener('click', (e) => e.stopPropagation());
+        sheet.addEventListener('mousedown', (e) => e.stopPropagation());
+        sheet.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
     });
 }
 
@@ -234,12 +241,18 @@ function renderBackgroundList() {
     
     refreshIcons();
     
-    // Add click handlers
+    // Add click handlers with proper event handling
     list.querySelectorAll('.settings-item').forEach(item => {
-        item.addEventListener('click', () => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             const bgId = parseInt(item.dataset.bgId);
             selectBackground(bgId);
         });
+        
+        // Prevent child elements from blocking clicks
+        item.addEventListener('mousedown', (e) => e.stopPropagation());
+        item.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
     });
 }
 
@@ -386,12 +399,18 @@ function renderShop() {
     content.innerHTML = html;
     refreshIcons();
     
-    // Add click handlers
+    // Add click handlers with proper event handling
     content.querySelectorAll('.shop-item:not(.locked)').forEach(item => {
-        item.addEventListener('click', () => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             const speciesId = item.dataset.speciesId;
             purchaseSpecies(speciesId);
         });
+        
+        // Prevent child elements from blocking clicks
+        item.addEventListener('mousedown', (e) => e.stopPropagation());
+        item.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
     });
 }
 

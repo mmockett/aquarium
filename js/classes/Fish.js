@@ -295,17 +295,22 @@ export class Fish {
                 }
             }
             
+            // Predator hunting logic
             if (amPredator) {
-                const isHungry = (world.now - this.lastAteTime) > this.huntingCooldown;
+                // Predators hunt when energy < 70 (hungry) and not on cooldown
+                const isHungry = this.energy < 70;
+                const canHunt = isHungry && this.huntingCooldown <= 0;
 
-                if (isHungry) {
-                    if (other.species.isPredator) {
+                if (canHunt) {
+                    // Check for rival predators first (territorial behavior)
+                    if (other.species.isPredator && !other.isDead) {
                         if (dSq < tantrumRangeSq && dSq < nearestRivalDistSq) {
                             nearestRival = other;
                             nearestRivalDistSq = dSq;
                         }
                     } 
-                    else if (other.size < this.size * 0.6) {
+                    // Hunt smaller non-predator fish
+                    else if (!other.species.isPredator && other.size < this.size * 0.8) {
                         // Switch target only if significantly closer (20% closer)
                         if (dSq < huntRangeSq && dSq < closestPreyDistSq * 0.8) {
                             closestPreyDistSq = dSq;
@@ -315,11 +320,22 @@ export class Fish {
                 }
             }
             
-            if (amPrey && other.species.isPredator) {
+            // Prey flee from predators - stronger response when closer
+            if (amPrey && other.species.isPredator && !other.isDead) {
                 if (dSq < fleeRangeSq) {
+                    const dist = Math.sqrt(dSq);
                     let diff = Vector.sub(this.pos, other.pos);
                     diff.normalize();
+                    // Stronger flee response when predator is closer
+                    const urgency = 1 - (dist / Math.sqrt(fleeRangeSq));
+                    diff.mult(1 + urgency * 2); // Up to 3x strength when very close
                     fleeVector.add(diff);
+                    
+                    // Mark as fleeing if predator is within dart range
+                    const dartRangeSq = 60**2;  // Start darting when predator is close
+                    if (dSq < dartRangeSq) {
+                        this.isFleeing = true;
+                    }
                 }
             }
         }
@@ -356,45 +372,75 @@ export class Fish {
                 this.acc.add(steer.mult(0.8)); // Reduced from 1.0
             }
 
+            // Predator hunting - deliberate pursuit
             if (amPredator && closestPrey) {
                  // Start hunt timer if this is a new target
                  if (this.huntingTarget !== closestPrey) {
                      this.huntStartTime = world.now;
                  }
-                 this.huntingTarget = closestPrey; 
+                 this.huntingTarget = closestPrey;
+                 
+                 const distToPrey = Math.sqrt(closestPreyDistSq);
                  let desired = Vector.sub(closestPrey.pos, this.pos);
                  desired.normalize();
-                 desired.mult(this.maxSpeed * 1.2);
+                 
+                 // Predators accelerate as they get closer (more committed to the chase)
+                 const proximity = 1 - Math.min(distToPrey / 150, 1.0);
+                 const huntSpeed = this.maxSpeed * (1.0 + proximity * 0.5); // Up to 1.5x speed when close
+                 desired.mult(huntSpeed);
+                 
                  let steer = Vector.sub(desired, this.vel);
-                 steer.limit(this.maxForce * 1.5);
+                 // Stronger steering when close to prey
+                 steer.limit(this.maxForce * (1.5 + proximity));
                  this.acc.add(steer);
             }
         }
 
+        // Apply flee behavior - prey escape from predators
         if (amPrey && (fleeVector.x !== 0 || fleeVector.y !== 0)) {
-            if (world.now - this.lastAteTime < 20000) {
+            // Fish can only flee effectively if they have some energy
+            // Starving fish are too weak to flee fast
+            const canFlee = this.energy > 20;
+            
+            if (canFlee) {
                 this.isFleeing = true; // Mark as fleeing for burst speed
                 fleeVector.normalize();
-                fleeVector.mult(this.maxSpeed * 2.5); // Increased from 2.0
+                fleeVector.mult(this.maxSpeed * 3.0); // Fast escape
                 let steer = Vector.sub(fleeVector, this.vel);
-                steer.limit(this.maxForce * 3.0);
+                steer.limit(this.maxForce * 4.0); // Strong steering to escape
                 this.acc.add(steer);
                 
-                if (Math.random() < 0.2) {
-                     world.spawnParticles(this.pos.x, this.pos.y, 1, '#fff', 1);
+                // Spawn panic bubbles occasionally
+                if (Math.random() < 0.15) {
+                    world.spawnParticles(this.pos.x, this.pos.y, 1, '#fff', 1);
                 }
+            } else {
+                // Weak flee - still try but slower
+                fleeVector.normalize();
+                fleeVector.mult(this.maxSpeed * 1.5);
+                let steer = Vector.sub(fleeVector, this.vel);
+                steer.limit(this.maxForce * 2.0);
+                this.acc.add(steer);
             }
         }
     }
 
     update(world, frameCount) {
         if (!this.isDead) {
-            this.energy -= 0.006;
+            // Energy drain: Predators drain slower (0.003) to survive longer hunting cooldowns
+            // Prey drain faster (0.006)
+            const energyDrainRate = this.species.isPredator ? 0.003 : 0.006;
+            this.energy -= energyDrainRate;
             if (this.digestionSlowdown < 1.0) this.digestionSlowdown += 0.002;
             
             // Decrement full cooldown
             if (this.fullCooldown > 0) {
                 this.fullCooldown -= 16.6; // Approx 60fps frame time
+            }
+            
+            // Decrement hunting cooldown for predators
+            if (this.species.isPredator && this.huntingCooldown > 0) {
+                this.huntingCooldown -= 16.6;
             }
 
             // Check mating logic more frequently (every 120 frames ~ 2 seconds) and increase range
@@ -460,8 +506,10 @@ export class Fish {
                     this.huntingTarget.isDead = true;
                     this.huntingTarget.deathReason = `Eaten by ${this.name}`;
                     this.huntingTarget.isEaten = true;
-                    this.feed(world);
+                    this.feed(world, true); // true = ate prey
                     world.sound.playBloop(0.5); 
+                    // Long cooldown after eating prey (2-5 minutes)
+                    this.huntingCooldown = rand(120 * 1000, 300 * 1000);
                     this.huntingTarget = null;
                     this.huntStartTime = 0;
                 }
@@ -546,6 +594,12 @@ export class Fish {
         speedMod *= energyFactor;
         speedMod *= this.digestionSlowdown;
 
+        // Predators are slower when not hungry (energy >= 70) - they cruise lazily
+        // This makes them less frantic and more menacing
+        if (this.species.isPredator && this.energy >= 70 && !this.huntingTarget) {
+            speedMod *= 0.4; // 40% speed when full/not hunting
+        }
+
         // Night time: move at 30% speed unless doing something urgent
         const isUrgentNow = target || this.isFleeing || this.huntingTarget || this.tantrumTarget;
         if (this.isDrowsy && !isUrgentNow) {
@@ -554,8 +608,12 @@ export class Fish {
 
         // Allow burst speed for Urgent behaviors (Feeding, Fleeing, Hunting, Fighting)
         let burst = 1.0;
-        if (isUrgentNow) {
-            burst = 2.5;
+        if (this.isFleeing) {
+            burst = 2.5; // Prey flee fast
+        } else if (this.huntingTarget) {
+            burst = 2.0; // Predators dart when hunting
+        } else if (isUrgentNow) {
+            burst = 1.8; // Other urgent actions
         }
 
         this.vel.limit(this.maxSpeed * burst * speedMod);
@@ -610,38 +668,78 @@ export class Fish {
     }
 
     boundaries(width, height) {
-        let margin = 100;
-        let desired = null;
-        if (this.pos.x < margin) desired = new Vector(this.maxSpeed, this.vel.y);
-        else if (this.pos.x > width - margin) desired = new Vector(-this.maxSpeed, this.vel.y);
-        if (this.pos.y < margin) desired = new Vector(this.vel.x, this.maxSpeed);
-        else if (this.pos.y > height - margin) desired = new Vector(this.vel.x, -this.maxSpeed);
-        if (desired) {
+        // Soft margin where fish start turning, hard margin where they must turn
+        const softMargin = 80;
+        const hardMargin = 30;
+        
+        let steerX = 0;
+        let steerY = 0;
+        
+        // Calculate wall proximity and steering strength
+        // The closer to the wall, the stronger the steering
+        if (this.pos.x < softMargin) {
+            const urgency = 1 - (this.pos.x - hardMargin) / (softMargin - hardMargin);
+            steerX = Math.max(0, urgency) * this.maxSpeed;
+        } else if (this.pos.x > width - softMargin) {
+            const urgency = 1 - ((width - this.pos.x) - hardMargin) / (softMargin - hardMargin);
+            steerX = -Math.max(0, urgency) * this.maxSpeed;
+        }
+        
+        if (this.pos.y < softMargin) {
+            const urgency = 1 - (this.pos.y - hardMargin) / (softMargin - hardMargin);
+            steerY = Math.max(0, urgency) * this.maxSpeed;
+        } else if (this.pos.y > height - softMargin) {
+            const urgency = 1 - ((height - this.pos.y) - hardMargin) / (softMargin - hardMargin);
+            steerY = -Math.max(0, urgency) * this.maxSpeed;
+        }
+        
+        if (steerX !== 0 || steerY !== 0) {
+            let desired = new Vector(
+                this.vel.x + steerX,
+                this.vel.y + steerY
+            );
             desired.normalize();
             desired.mult(this.maxSpeed);
             let steer = Vector.sub(desired, this.vel);
-            steer.limit(this.maxForce * 2);
+            // Stronger steering force near walls
+            const maxUrgency = Math.max(Math.abs(steerX), Math.abs(steerY)) / this.maxSpeed;
+            steer.limit(this.maxForce * (2 + maxUrgency * 3));
             this.acc.add(steer);
         }
     }
 
-    feed(world) {
+    feed(world, atePrey = false) {
         if (this.isDead) return;
-        world.onScoreUpdate(15); 
-        this.energy = Math.min(this.maxEnergy, this.energy + 30);
+        
+        // Predators get more points and energy for catching prey
+        const scoreBonus = atePrey ? 50 : 15;
+        const energyBonus = atePrey ? 60 : 30;
+        
+        world.onScoreUpdate(scoreBonus); 
+        this.energy = Math.min(this.maxEnergy, this.energy + energyBonus);
         this.digestionSlowdown = 0.5; 
         this.lastAteTime = world.now; 
         
-        // Set a random cooldown between 5 and 30 seconds
-        this.fullCooldown = rand(5000, 30000);
+        // Set a random cooldown between 5 and 30 seconds (for regular food)
+        // Predators get longer cooldown set separately when catching prey
+        if (!atePrey) {
+            this.fullCooldown = rand(5000, 30000);
+        }
 
         const maxSize = this.species.size * 3.0; 
         if (this.size < maxSize) {
-            this.size += 0.8; 
+            // Predators grow more from eating prey
+            const growthAmount = atePrey ? 1.5 : 0.8;
+            this.size += growthAmount; 
             this.maxSpeed = Math.max(this.species.speed * 0.5, this.maxSpeed - 0.02);
         }
 
-        world.spawnParticles(this.pos.x, this.pos.y, 5, '#fff', 1);
+        // Different particle effects
+        if (atePrey) {
+            world.spawnParticles(this.pos.x, this.pos.y, 10, '#E74C3C', 2); // Red particles for prey
+        } else {
+            world.spawnParticles(this.pos.x, this.pos.y, 5, '#fff', 1);
+        }
     }
 
     draw(ctx, world) {
