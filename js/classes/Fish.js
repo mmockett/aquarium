@@ -695,7 +695,7 @@ export class Fish {
                 stats.push(`${this.childrenCount} offspring`);
             }
             if (this.species.isPredator) {
-                stats.push("🦈 Predator");
+                stats.push("Predator");
             }
             
             // Only show if there's something to display
