@@ -38,7 +38,7 @@ let fpsLastTime = performance.now();
 let currentFPS = 60;
 
 const sound = new SoundManager();
-const spatialGrid = new SpatialHash(150);
+const spatialGrid = new SpatialHash(80);  // Reduced from 150 for smaller fish
 
 // --- Core Systems ---
 
@@ -246,7 +246,7 @@ function handleInput(e) {
         for (let f of fishes) {
             if (!f.isDead) {
                 let dSq = distSq(x, y, f.pos.x, f.pos.y);
-                if (dSq < (f.size + 20)**2) {
+                if (dSq < (f.size + 10)**2) {  // Reduced padding from 20 for smaller fish
                     clickedFish = f;
                     break;
                 }
