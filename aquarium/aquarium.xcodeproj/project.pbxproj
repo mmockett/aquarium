@@ -6,20 +6,35 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		402092862EDCA7C20051A08C /* StoreKitTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 402092042EDA00160051A08C /* StoreKitTest.framework */; };
+		402092872EDCA7C20051A08C /* StoreKitTest.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 402092042EDA00160051A08C /* StoreKitTest.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		402092892EDCA8A50051A08C /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4020920B2EDA01C00051A08C /* StoreKit.framework */; };
+		4020928C2EDCAC910051A08C /* Products.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 4020928B2EDCAC910051A08C /* Products.storekit */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		402092882EDCA7C20051A08C /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				402092872EDCA7C20051A08C /* StoreKitTest.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		402092042EDA00160051A08C /* StoreKitTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKitTest.framework; path = Platforms/iPhoneOS.platform/Developer/Library/Frameworks/StoreKitTest.framework; sourceTree = DEVELOPER_DIR; };
 		4020920B2EDA01C00051A08C /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/StoreKit.framework; sourceTree = DEVELOPER_DIR; };
+		4020928B2EDCAC910051A08C /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Products.storekit; sourceTree = "<group>"; };
 		40A9E8722ED3C6190079A114 /* aquarium.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = aquarium.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		402091EC2ED78EE40051A08C /* Exceptions for "aquarium iOS" folder in "aquarium iOS" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"aquarium-iOS-Info.plist",
-			);
-			target = 40A9E8712ED3C6190079A114 /* aquarium iOS */;
-		};
 		40A9E8A82ED3C6190079A114 /* Exceptions for "aquarium Shared" folder in "aquarium iOS" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -63,9 +78,6 @@
 		};
 		40A9E8742ED3C6190079A114 /* aquarium iOS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				402091EC2ED78EE40051A08C /* Exceptions for "aquarium iOS" folder in "aquarium iOS" target */,
-			);
 			path = "aquarium iOS";
 			sourceTree = "<group>";
 		};
@@ -76,6 +88,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				402092862EDCA7C20051A08C /* StoreKitTest.framework in Frameworks */,
+				402092892EDCA8A50051A08C /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -94,6 +108,7 @@
 		40A9E8642ED3C6150079A114 = {
 			isa = PBXGroup;
 			children = (
+				4020928B2EDCAC910051A08C /* Products.storekit */,
 				40A9E8692ED3C6150079A114 /* aquarium Shared */,
 				40A9E8742ED3C6190079A114 /* aquarium iOS */,
 				402092012EDA00100051A08C /* Frameworks */,
@@ -119,6 +134,7 @@
 				40A9E86E2ED3C6190079A114 /* Sources */,
 				40A9E86F2ED3C6190079A114 /* Frameworks */,
 				40A9E8702ED3C6190079A114 /* Resources */,
+				402092882EDCA7C20051A08C /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -173,6 +189,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4020928C2EDCAC910051A08C /* Products.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

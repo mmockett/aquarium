@@ -441,7 +441,7 @@ export function updateFishCounts(fishes) {
         gameState.fishCounts[id] = (gameState.fishCounts[id] || 0) + 1;
         gameState.currentAliveFish++;
     });
-    
+
     // Update stats display if memories is open
     document.getElementById('statAlive').textContent = gameState.currentAliveFish;
     
@@ -657,7 +657,7 @@ function loadState() {
             gameState.totalDeaths = data.totalDeaths ?? 0;
             gameState.spiritEvents = data.spiritEvents ?? [];
             gameState.unlockedSpecies = new Set(data.unlockedSpecies ?? ['basic']);
-            
+    
             // Update UI to reflect loaded state
             updateScore(gameState.score);
             document.getElementById('autoFeedBtn').classList.toggle('active', gameState.autoFeed);
@@ -685,5 +685,5 @@ export function toggleHelp() {
 function refreshIcons() {
     if (window.lucide) {
         window.lucide.createIcons();
-    }
+}
 }

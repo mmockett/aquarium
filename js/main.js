@@ -87,7 +87,7 @@ function init() {
             restartGame();
         }
     });
-
+    
     // Load background based on saved setting
     loadBackground(UI.getSelectedBackground());
 
@@ -529,7 +529,7 @@ function updateTimeCycle(dt) {
     } else {
         // Normal time progression
         timeCycle += (dt * 1000) / cycleDuration;
-        if (timeCycle >= 1) timeCycle = 0;
+    if (timeCycle >= 1) timeCycle = 0;
     }
 
     let phase, nextPhase, t;

@@ -378,7 +378,7 @@ export class Fish {
                  if (this.huntingTarget !== closestPrey) {
                      this.huntStartTime = world.now;
                  }
-                 this.huntingTarget = closestPrey;
+                 this.huntingTarget = closestPrey; 
                  
                  const distToPrey = Math.sqrt(closestPreyDistSq);
                  let desired = Vector.sub(closestPrey.pos, this.pos);
@@ -412,7 +412,7 @@ export class Fish {
                 
                 // Spawn panic bubbles occasionally
                 if (Math.random() < 0.15) {
-                    world.spawnParticles(this.pos.x, this.pos.y, 1, '#fff', 1);
+                     world.spawnParticles(this.pos.x, this.pos.y, 1, '#fff', 1);
                 }
             } else {
                 // Weak flee - still try but slower
@@ -503,14 +503,14 @@ export class Fish {
                 } 
                 // Catch prey - use combined sizes for more reliable catching
                 else if (distToPreySq < (this.size + this.huntingTarget.size)**2) {
-                    this.huntingTarget.isDead = true;
-                    this.huntingTarget.deathReason = `Eaten by ${this.name}`;
-                    this.huntingTarget.isEaten = true;
+                this.huntingTarget.isDead = true;
+                this.huntingTarget.deathReason = `Eaten by ${this.name}`;
+                this.huntingTarget.isEaten = true;
                     this.feed(world, true); // true = ate prey
-                    world.sound.playBloop(0.5); 
+                world.sound.playBloop(0.5); 
                     // Long cooldown after eating prey (2-5 minutes)
                     this.huntingCooldown = rand(120 * 1000, 300 * 1000);
-                    this.huntingTarget = null;
+                this.huntingTarget = null;
                     this.huntStartTime = 0;
                 }
             }
@@ -576,7 +576,7 @@ export class Fish {
                 this.isDrowsy = world.isNight && !this.species.isPredator && !isUrgent;
 
                 this.computeBehaviors(world);
-                this.wander(world);
+                    this.wander(world);
                 this.boundaries(world.width, world.height);
             }
         }
@@ -723,7 +723,7 @@ export class Fish {
         // Set a random cooldown between 5 and 30 seconds (for regular food)
         // Predators get longer cooldown set separately when catching prey
         if (!atePrey) {
-            this.fullCooldown = rand(5000, 30000);
+        this.fullCooldown = rand(5000, 30000);
         }
 
         const maxSize = this.species.size * 3.0; 
@@ -738,7 +738,7 @@ export class Fish {
         if (atePrey) {
             world.spawnParticles(this.pos.x, this.pos.y, 10, '#E74C3C', 2); // Red particles for prey
         } else {
-            world.spawnParticles(this.pos.x, this.pos.y, 5, '#fff', 1);
+        world.spawnParticles(this.pos.x, this.pos.y, 5, '#fff', 1);
         }
     }
 
@@ -795,22 +795,22 @@ export class Fish {
             if (this.species.isPredator) {
                 stats.push("Predator");
             }
-            
+
             // Only show if there's something to display
             if (stats.length > 0) {
                 const statsText = stats.join(' • ');
                 ctx.font = "500 10px 'Inter', -apple-system, sans-serif";
-                const metrics = ctx.measureText(statsText);
-                const bgW = metrics.width + 16;
-                const bgH = 20;
+            const metrics = ctx.measureText(statsText);
+            const bgW = metrics.width + 16;
+            const bgH = 20;
 
-                ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-                ctx.beginPath();
-                ctx.roundRect(-bgW/2, -bgH/2, bgW, bgH, 10);
-                ctx.fill();
+            ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+            ctx.beginPath();
+            ctx.roundRect(-bgW/2, -bgH/2, bgW, bgH, 10);
+            ctx.fill();
 
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
                 ctx.fillStyle = "rgba(255,255,255,0.9)";
                 ctx.fillText(statsText, 0, 0);
             }
@@ -849,10 +849,10 @@ export class Fish {
             ctx.font = "600 11px 'Inter', -apple-system, sans-serif";
             ctx.fillStyle = "rgba(0,0,0,0.4)";
             ctx.fillText(hungerStatus, 1, this.size + 31);
-            ctx.fillStyle = hungerColor;
+                ctx.fillStyle = hungerColor;
             ctx.fillText(hungerStatus, 0, this.size + 30);
-        }
-        ctx.restore();
+            }
+            ctx.restore();
 
 
         // --- 2. Draw Fish (Rotated) ---
