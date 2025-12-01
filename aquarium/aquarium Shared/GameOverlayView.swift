@@ -236,6 +236,7 @@ struct SettingsSheetContent: View {
                                         .foregroundColor(.blue)
                                 }
                             }
+                            .contentShape(Rectangle())  // Make entire row tappable
                         }
                         .buttonStyle(.plain)
                     }
@@ -588,13 +589,9 @@ struct GlassButton: View {
         }) {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(isActive ? .white : .primary)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(isActive ? activeColor : .white)
                     .frame(width: 40, height: 40)
-                    .glassEffect(
-                        .regular.tint(isActive ? activeColor : .clear).interactive(),
-                        in: Circle()
-                    )
                 
                 // Badge for count (only show if > 0)
                 if badgeCount > 0 {

@@ -3,7 +3,7 @@ import SpriteKit
 // MARK: - Food Node (SKSpriteNode for better performance)
 class FoodNode: SKSpriteNode {
     var vel: CGVector = CGVector(dx: 0, dy: 0)
-    var acc: CGVector = CGVector(dx: 0, dy: 0.03) // Slower fall speed
+    var acc: CGVector = CGVector(dx: 0, dy: 0.015) // Very slow fall - gives fish time to catch it
     var wobbleSpeed: CGFloat = 0
     var wobbleDist: CGFloat = 0
     var timeOffset: CGFloat = 0
@@ -18,8 +18,6 @@ class FoodNode: SKSpriteNode {
     
     /// Generate the shared food texture (call once at app startup)
     static func generateSharedTexture() {
-        guard sharedTexture == nil else { return }
-        
         // Create a small circle texture programmatically
         let size: CGFloat = 8  // Texture size (4px radius * 2)
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
@@ -37,6 +35,12 @@ class FoodNode: SKSpriteNode {
         }
         
         sharedTexture = SKTexture(image: image)
+    }
+    
+    /// Generate texture only if not already generated (for fallback use)
+    static func generateSharedTextureIfNeeded() {
+        guard sharedTexture == nil else { return }
+        generateSharedTexture()
     }
     
     init(position: CGPoint) {

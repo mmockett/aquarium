@@ -103,6 +103,13 @@ class FishNode: SKNode {
     private var partScales: [String: CGFloat] = [:]
     private var baseScale: CGFloat = 1.0
     
+    // Static counter for unique fish depth assignment
+    // With 0.01 separation and range 15-45, supports 3000 unique depths before wrap
+    private static var nextFishDepth: CGFloat = 0
+    
+    // Each fish gets a unique fixed depth to prevent part interleaving
+    private var fishDepth: CGFloat = 0
+    
     // MARK: - Initialization
     init(species: Species, position: CGPoint) {
         self.species = species
@@ -136,7 +143,13 @@ class FishNode: SKNode {
         self.personalityBias = CGFloat.random(in: -0.3...0.3)
         
         self.position = position
-        self.zPosition = 10 // Base Z index
+        
+        // Assign unique fixed depth for this fish (range 15-45, between caustics at 5 and front overlay at 50)
+        // Each fish gets a unique depth so their parts never interleave with other fish
+        // With 0.01 separation, supports 3000 fish before wrap (15 + 2999*0.01 = 44.99)
+        self.fishDepth = 15 + (FishNode.nextFishDepth.truncatingRemainder(dividingBy: 3000)) * 0.01
+        FishNode.nextFishDepth += 1
+        self.zPosition = fishDepth
         
         setupParts()
         setupLabels()
@@ -454,9 +467,10 @@ class FishNode: SKNode {
             spawnFoodCrumbs(at: pos, in: scene)
         }
         
-        // Growth by Feeding (JS Logic)
+        // Growth by Feeding - slow growth (10x slower than before)
+        // At 0.5% per meal, fish need ~140 meals to grow from 30% to 100%
         if scaleFactor < 1.0 {
-            scaleFactor += 0.05 // Grow 5% per meal
+            scaleFactor += 0.005 // Grow 0.5% per meal
             if scaleFactor > 1.0 { scaleFactor = 1.0 }
             // Label position will auto-update in updateLabelPosition() based on new scaleFactor
         }
@@ -534,11 +548,14 @@ class FishNode: SKNode {
             return
         }
         
-        // Energy drain: varies by type
+        // Energy drain: varies by type and age
         // Prey fish: 0.4 per second = 250 seconds (4+ minutes) to starve from full
         // Predators: 0.15 per second = 666 seconds (11+ minutes) to starve from full
         // This allows predators to survive their longer hunting cooldowns (2-5 minutes)
-        let energyDrainRate: CGFloat = species.isPredator ? 0.15 : 0.4
+        // Baby fish (not yet adult) drain energy 4x faster so they eat more and grow faster
+        let baseEnergyDrainRate: CGFloat = species.isPredator ? 0.15 : 0.4
+        let babyMultiplier: CGFloat = isAdult ? 1.0 : 4.0
+        let energyDrainRate = baseEnergyDrainRate * babyMultiplier
         energy -= dt * energyDrainRate
         
         // Decrement hunting cooldown for predators
@@ -586,17 +603,23 @@ class FishNode: SKNode {
         }
         
         // 1. Determine what we're trying to do (get target heading)
-        let (desiredDir, darting, targetDist) = calculateTargetVelocity(otherFish: otherFish, food: food, bounds: bounds, isNight: isNight)
+        let (desiredDir, darting, _) = calculateTargetVelocity(otherFish: otherFish, food: food, bounds: bounds, isNight: isNight, dt: dt)
         isDarting = darting
         let rawTargetHeading = atan2(desiredDir.y, desiredDir.x)
         
         // 2. Commitment System - Balance between smooth movement and responsive flocking
         commitmentTimer -= dt
         
-        if isDarting {
-            // When darting (chasing food), always track the target directly
+        if isDarting && currentFoodTarget != nil {
+            // When chasing food: SNAP heading directly to food direction
+            // No gradual turning - just go straight at it
+            currentHeading = rawTargetHeading
             targetHeading = rawTargetHeading
-            commitmentTimer = 0  // Reset commitment when darting
+            commitmentTimer = 0
+        } else if isDarting {
+            // Darting for other reasons (fleeing, hunting) - track target directly
+            targetHeading = rawTargetHeading
+            commitmentTimer = 0
         } else if hasFlockmates {
             // When in a flock, be more responsive to formation changes
             // Blend current heading with target more aggressively
@@ -656,47 +679,23 @@ class FishNode: SKNode {
         }
         
         // 4. Calculate turn rate
-        // Larger fish turn more slowly (size affects maneuverability) - but NOT when chasing food
+        // Larger fish turn more slowly (size affects maneuverability)
         // species.size ranges from ~10 (small) to ~60 (large)
         // Scale factor: small fish (size 10) = 1.0, large fish (size 60) = 0.3
         let sizeTurnMultiplier = max(0.3, 1.0 - (species.size - 10) / 80.0)
         
         var baseTurnRate: CGFloat
-        if isDarting {
-            // When chasing food, apply size penalty to prevent large fish from shaking
-            // Large fish (size 45+) get lower turn rates even when darting
-            let dartTurnRate: CGFloat = species.size > 30 ? 3.0 : 5.0
-            baseTurnRate = dartTurnRate * sizeTurnMultiplier
+        if isDarting && currentFoodTarget != nil {
+            // When chasing food: heading is already snapped, but use high turn rate
+            // for any minor corrections needed
+            baseTurnRate = 20.0
+        } else if isDarting {
+            // Darting for other reasons (fleeing, hunting)
+            baseTurnRate = 8.0
         } else if hasFlockmates {
             baseTurnRate = 2.0 * sizeTurnMultiplier  // Responsive turns when in a flock
         } else {
             baseTurnRate = 0.5 * sizeTurnMultiplier  // Slow, graceful turns when solo
-        }
-        
-        if isDarting && targetDist > 0 {
-            // Proximity-based turn rate adjustment
-            if targetDist > 50 {
-                // Far from food: boost turn rate to track it
-                let maxBoost = species.size > 30 ? 2.0 : 4.0  // Reduced boost for large fish
-                let proximityBoost = min(max(1.0, 150.0 / max(targetDist, 50.0)), maxBoost)
-                baseTurnRate *= proximityBoost
-            } else {
-                // Very close to food: REDUCE turn rate to prevent shaking
-                // Just go straight and eat it
-                baseTurnRate *= 0.5
-            }
-            
-            // Track circling behavior: if we're turning a lot while close to food
-            if targetDist < 80 && abs(headingDiff) > 0.5 {
-                foodCirclingTimer += dt
-            } else {
-                foodCirclingTimer = max(0, foodCirclingTimer - dt * 2)  // Decay faster when not circling
-            }
-        }
-        
-        // Additional damping when already mostly aligned (prevents oscillation)
-        if abs(headingDiff) < 0.2 {
-            baseTurnRate *= 0.5  // Gentle corrections when nearly aligned
         }
         
         // Recalculate heading diff after potential anti-orbit adjustment
@@ -782,6 +781,8 @@ class FishNode: SKNode {
         // 7. Move
         position.x += velocity.x * dt * 60
         position.y += velocity.y * dt * 60
+        
+        // zPosition is fixed at fish creation to prevent parts from interleaving with other fish
         
         // 8. Soft boundary handling (gradual push, not bounce)
         let margin: CGFloat = species.size * 0.5
@@ -871,7 +872,7 @@ class FishNode: SKNode {
     
     /// Returns (targetDirection, isDarting, distanceToTarget)
     /// distanceToTarget is the distance to food/prey if chasing, otherwise -1
-    private func calculateTargetVelocity(otherFish: [FishNode], food: [SKNode], bounds: CGRect, isNight: Bool) -> (Vector, Bool, CGFloat) {
+    private func calculateTargetVelocity(otherFish: [FishNode], food: [SKNode], bounds: CGRect, isNight: Bool, dt: CGFloat) -> (Vector, Bool, CGFloat) {
         
         // Start with current heading as default (maintain course)
         var targetDir = Vector(x: cos(currentHeading), y: sin(currentHeading))
@@ -915,103 +916,85 @@ class FishNode: SKNode {
         }
         
         // --- Layer 3: Food Seeking ---
-        // Fish should actively hunt food when hungry - this takes priority
+        // All fish can eat food when hungry
+        // Predators only eat food when very hungry (< 50) or on hunting cooldown
+        // This ensures they still prefer hunting but won't starve
         // Note: foodGiveUpCooldown is decremented in the main update() function
         
-        if energy < 85 && !species.isPredator && foodGiveUpCooldown <= 0 {
+        let shouldSeekFood: Bool
+        if species.isPredator {
+            // Predators eat food only when desperate (< 50 energy) or can't hunt (on cooldown)
+            shouldSeekFood = energy < 50 || (energy < 85 && huntingCooldown > 0)
+        } else {
+            shouldSeekFood = energy < 85
+        }
+        
+        if shouldSeekFood && foodGiveUpCooldown <= 0 {
             var bestFood: FoodNode? = nil
-            var bestDist: CGFloat = 500  // Increased detection range
+            var bestDist: CGFloat = 500  // Detection range
             
-            // Check if we've been circling too long - give up on current target
-            if foodCirclingTimer > 1.0 {
-                // We've been circling for over 1 second - give up and move away
-                currentFoodTarget = nil
-                foodCirclingTimer = 0
-                foodChaseTimer = 0
-                foodGiveUpCooldown = 2.0  // Don't target food for 2 seconds
-                
-                // Turn away from where we were circling
-                let escapeAngle = currentHeading + CGFloat.random(in: 2.0...4.0) * (Bool.random() ? 1 : -1)
-                commitedHeading = escapeAngle
-                commitmentTimer = 1.5
-                
-                // Skip food seeking this frame
-                bestFood = nil
-            } else {
-                // Prefer current target for consistency (sticky targeting)
-                // Optimization: Use squared distance where possible
-                let maxDistSq: CGFloat = 500 * 500
-                var bestDistSq = maxDistSq
-                
-                if let current = currentFoodTarget, current.parent != nil, !current.eaten {
-                    let dx = current.position.x - position.x
-                    let dy = current.position.y - position.y
-                    let distSq = dx * dx + dy * dy
-                    let stickyBonus: CGFloat = 200 * 200 + 2 * 200 * sqrt(bestDistSq)  // Approximate (bestDist + 200)²
-                    if distSq < bestDistSq + stickyBonus { bestFood = current; bestDistSq = distSq }
-                    else { currentFoodTarget = nil; foodChaseTimer = 0 }
-                }
-                
-                // Find new target if needed
-                if bestFood == nil {
-                    for node in food {
-                        guard let f = node as? FoodNode, !f.eaten, f.targetCount < f.maxTargets else { continue }
-                        let dx = f.position.x - position.x
-                        let dy = f.position.y - position.y
-                        let distSq = dx * dx + dy * dy
-                        if distSq < bestDistSq { bestDistSq = distSq; bestFood = f }
-                    }
-                }
-                
-                // Convert back to distance for later use
-                bestDist = sqrt(bestDistSq)
+            // Prefer current target for consistency (sticky targeting)
+            let maxDistSq: CGFloat = 500 * 500
+            var bestDistSq = maxDistSq
+            
+            if let current = currentFoodTarget, current.parent != nil, !current.eaten {
+                let dx = current.position.x - position.x
+                let dy = current.position.y - position.y
+                let distSq = dx * dx + dy * dy
+                let stickyBonus: CGFloat = 200 * 200 + 2 * 200 * sqrt(bestDistSq)
+                if distSq < bestDistSq + stickyBonus { bestFood = current; bestDistSq = distSq }
+                else { currentFoodTarget = nil }
             }
+            
+            // Find new target if needed
+            if bestFood == nil {
+                for node in food {
+                    guard let f = node as? FoodNode, !f.eaten, f.targetCount < f.maxTargets else { continue }
+                    let dx = f.position.x - position.x
+                    let dy = f.position.y - position.y
+                    let distSq = dx * dx + dy * dy
+                    if distSq < bestDistSq { bestDistSq = distSq; bestFood = f }
+                }
+            }
+            
+            // Convert back to distance for later use
+            bestDist = sqrt(bestDistSq)
             
             if bestFood !== currentFoodTarget {
                 currentFoodTarget = bestFood
                 foodChaseTimer = 0  // Reset chase timer for new target
-                foodCirclingTimer = 0
             }
             
             if let f = currentFoodTarget {
-                // Check if food is in front of the fish's mouth
-                // Fish body is approximately species.size * 2 wide, so mouth is ~species.size from center
-                // Scale by scaleFactor for baby fish
-                let mouthOffset = species.size * 0.9 * scaleFactor
-                let mouthPos = CGPoint(
-                    x: position.x + cos(currentHeading) * mouthOffset,
-                    y: position.y + sin(currentHeading) * mouthOffset
-                )
-                let distToMouth = hypot(f.position.x - mouthPos.x, f.position.y - mouthPos.y)
+                // Increment chase timer
+                foodChaseTimer += dt
                 
-                // Tight eat radius - food must be very close to mouth
-                let eatRadius: CGFloat = 12 + species.size * 0.1
-                if distToMouth < eatRadius {
+                // Simple eat check - like JS version: eatDist = this.size + 5
+                let eatDist = species.size * scaleFactor + 5
+                if bestDist < eatDist {
                     let foodPos = f.position
                     f.eaten = true
                     f.removeFromParent()
                     eat(at: foodPos)
                     currentFoodTarget = nil
+                    foodChaseTimer = 0
                 } else {
+                    // Simple steering toward food - matches JS seek() behavior
+                    // Just point directly at food, no complex mouth offset calculations
                     let toFood = Vector(x: f.position.x - position.x, y: f.position.y - position.y)
                     var normalized = toFood
                     normalized.normalize()
                     
-                    // Much stronger food influence - hungry fish focus on food!
-                    let hunger = 1.0 - (energy / 85)  // 0 at full, 1 at empty
-                    let proximity = 1.0 - min(bestDist / 500, 1.0)
+                    // Strong food influence - fish go straight for food
+                    // JS uses influence of 1.0 (full override) via seek()
+                    targetDir = normalized
                     
-                    // Base influence starts high and gets stronger with hunger
-                    // At 50% energy: influence ~0.7, at 20% energy: influence ~0.9
-                    let influence = min(0.5 + hunger * 0.5 + proximity * 0.3, 0.95)
-                    targetDir = targetDir * (1.0 - influence) + normalized * influence
-                    
-                    // Dart when hungry OR when food is close
-                    if energy < 60 || bestDist < 200 { 
-                        shouldDart = true 
-                        targetDistance = bestDist  // Track distance for turn rate adjustment
-                    }
+                    // Always dart when chasing food (like JS speedMult = 2.5)
+                    shouldDart = true 
+                    targetDistance = bestDist
                 }
+            } else {
+                foodChaseTimer = 0  // No target, reset timer
             }
         }
         
@@ -1562,7 +1545,10 @@ class FishNode: SKNode {
             let texture = SKTexture(imageNamed: imageName)
             if let partConfig = configs[key] {
                 let sprite = SKSpriteNode(texture: texture)
-                sprite.zPosition = CGFloat(partConfig.zIndex)
+                // Scale part zIndex to be tiny (0.0001-0.001 range) so parts only affect
+                // ordering within this fish, not between different fish
+                // Max zIndex ~10, so max part zPosition = 0.001, well under fish separation of 0.01
+                sprite.zPosition = CGFloat(partConfig.zIndex) * 0.0001
                 
                 let finalScale = baseScale * partConfig.scale
                 sprite.xScale = -finalScale

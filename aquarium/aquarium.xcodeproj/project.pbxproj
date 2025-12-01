@@ -7,25 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		402092862EDCA7C20051A08C /* StoreKitTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 402092042EDA00160051A08C /* StoreKitTest.framework */; };
-		402092872EDCA7C20051A08C /* StoreKitTest.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 402092042EDA00160051A08C /* StoreKitTest.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		402092892EDCA8A50051A08C /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4020920B2EDA01C00051A08C /* StoreKit.framework */; };
 		4020928C2EDCAC910051A08C /* Products.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 4020928B2EDCAC910051A08C /* Products.storekit */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		402092882EDCA7C20051A08C /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				402092872EDCA7C20051A08C /* StoreKitTest.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		402092042EDA00160051A08C /* StoreKitTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKitTest.framework; path = Platforms/iPhoneOS.platform/Developer/Library/Frameworks/StoreKitTest.framework; sourceTree = DEVELOPER_DIR; };
@@ -88,7 +72,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				402092862EDCA7C20051A08C /* StoreKitTest.framework in Frameworks */,
 				402092892EDCA8A50051A08C /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -134,7 +117,6 @@
 				40A9E86E2ED3C6190079A114 /* Sources */,
 				40A9E86F2ED3C6190079A114 /* Frameworks */,
 				40A9E8702ED3C6190079A114 /* Resources */,
-				402092882EDCA7C20051A08C /* Embed Frameworks */,
 			);
 			buildRules = (
 			);

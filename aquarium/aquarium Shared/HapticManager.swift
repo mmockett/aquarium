@@ -34,6 +34,20 @@ class HapticManager {
         notificationFeedback?.prepare()
     }
     
+    /// Call this at app launch to fully initialize the haptic system
+    /// This prevents the first real haptic from causing a delay
+    func warmUp() {
+        // Trigger a zero-intensity haptic to fully initialize the system
+        // This happens during the loading screen so the delay isn't noticeable
+        lightImpact?.impactOccurred(intensity: 0.0)
+        
+        // Re-prepare for next use
+        lightImpact?.prepare()
+        mediumImpact?.prepare()
+        heavyImpact?.prepare()
+        notificationFeedback?.prepare()
+    }
+    
     private func setupCoreHaptics() {
         // Check if device supports haptics
         supportsHaptics = CHHapticEngine.capabilitiesForHardware().supportsHaptics

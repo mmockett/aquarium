@@ -10,8 +10,6 @@ class BubbleNode: SKSpriteNode {
     
     /// Generate shared bubble texture (call once at app startup)
     static func generateSharedTextures() {
-        guard sharedTexture == nil else { return }
-        
         // Generate a single white circle texture, we'll scale it per-bubble
         let texSize: CGFloat = 16  // Base texture size
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: texSize, height: texSize))
@@ -22,6 +20,12 @@ class BubbleNode: SKSpriteNode {
             ctx.fillEllipse(in: CGRect(x: 1, y: 1, width: texSize - 2, height: texSize - 2))
         }
         sharedTexture = SKTexture(image: image)
+    }
+    
+    /// Generate textures only if not already generated (for fallback use)
+    static func generateSharedTexturesIfNeeded() {
+        guard sharedTexture == nil else { return }
+        generateSharedTextures()
     }
     
     init() {
@@ -90,16 +94,19 @@ class BubbleNode: SKSpriteNode {
         let rise = SKAction.moveBy(x: 0, y: distanceToTop, duration: riseDuration)
         rise.timingMode = .linear
         
-        // Create wobble action (runs concurrently with rise)
+        // Create wobble action - repeat for the duration of rise, not forever
         let wobbleRight = SKAction.moveBy(x: wobbleAmount, y: 0, duration: wobbleDuration / 2)
         wobbleRight.timingMode = .easeInEaseOut
         let wobbleLeft = SKAction.moveBy(x: -wobbleAmount, y: 0, duration: wobbleDuration / 2)
         wobbleLeft.timingMode = .easeInEaseOut
-        let wobbleSequence = SKAction.sequence([wobbleRight, wobbleLeft])
-        let wobbleForever = SKAction.repeatForever(wobbleSequence)
+        let wobbleOnce = SKAction.sequence([wobbleRight, wobbleLeft])
         
-        // Combine rise with wobble
-        let riseWithWobble = SKAction.group([rise, wobbleForever])
+        // Calculate how many wobble cycles fit in the rise duration
+        let wobbleCycles = Int(ceil(riseDuration / wobbleDuration))
+        let wobbleRepeated = SKAction.repeat(wobbleOnce, count: max(1, wobbleCycles))
+        
+        // Combine rise with wobble - both are finite duration now
+        let riseWithWobble = SKAction.group([rise, wobbleRepeated])
         
         // After reaching top, reset to bottom and start again
         let resetAndLoop = SKAction.run { [weak self] in
@@ -137,8 +144,8 @@ class WeedNode: SKSpriteNode {
     }
     
     private func startSwayAnimation() {
-        // Random sway parameters
-        let swaySpeed = CGFloat.random(in: 0.5...1.5)
+        // Random sway parameters - 3x slower than before
+        let swaySpeed = CGFloat.random(in: 0.15...0.5)  // Was 0.5...1.5
         let swayAmplitude: CGFloat = 0.08  // Max rotation in radians
         let swayDuration = TimeInterval(1.0 / swaySpeed)  // Period of oscillation
         

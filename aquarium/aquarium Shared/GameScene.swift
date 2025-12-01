@@ -95,9 +95,10 @@ class GameScene: SKScene {
         
         physicsWorld.gravity = CGVector(dx: 0, dy: -1.0)
         
-        // Pre-generate shared textures for better performance
-        FoodNode.generateSharedTexture()
-        BubbleNode.generateSharedTextures()
+        // Textures are pre-generated in GameViewController for faster loading
+        // Only generate if not already done (fallback for macOS or direct scene loading)
+        FoodNode.generateSharedTextureIfNeeded()
+        BubbleNode.generateSharedTexturesIfNeeded()
         
         setupBackground()
         setupEnvironment()
@@ -301,9 +302,11 @@ class GameScene: SKScene {
         // 3. Gradient Overlay (Merged with Night Overlay)
         createGradientNode()
         
-        // 4. Caustics
-        setupCausticsLayer()
+        // 4. Caustics (only setup once, not on every background change)
+        if causticsNeedSetup {
+            setupCausticsLayer()
         }
+    }
         
     // Helper for Aspect Fill
     func coverSize(imageSize: CGSize, viewSize: CGSize) -> CGSize {
@@ -403,7 +406,6 @@ class GameScene: SKScene {
     }
     
     private var causticsNeedSetup = true
-    private var causticGradientTexture: SKTexture?
     
     private func setupCausticsLayer() {
         // Remove any existing caustics first
@@ -414,14 +416,12 @@ class GameScene: SKScene {
         causticsContainer?.removeFromParent()
         causticsContainer = nil
         
-        // Create a soft gradient texture programmatically (no blur needed)
-        if causticGradientTexture == nil {
-            causticGradientTexture = createSoftGradientTexture()
-        }
+        // Use pre-rendered caustic beam texture from assets (much faster than runtime generation)
+        let gradientTexture = SKTexture(imageNamed: "CausticBeam")
         
-        guard let gradientTexture = causticGradientTexture else {
+        guard gradientTexture.size().width > 0 else {
             #if DEBUG
-            print("Warning: Failed to create caustic gradient texture")
+            print("Warning: Failed to load CausticBeam texture from assets")
             #endif
             causticsNeedSetup = false
             return
@@ -477,67 +477,6 @@ class GameScene: SKScene {
         #endif
         
         causticsNeedSetup = false
-    }
-    
-    /// Creates a soft radial gradient texture that fades from center to edges
-    /// This gives a "blurred" look without any actual blur processing
-    private func createSoftGradientTexture() -> SKTexture? {
-        let textureWidth = 128
-        let textureHeight = 256
-        
-        // Create a CGContext to draw the gradient
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        guard let context = CGContext(
-            data: nil,
-            width: textureWidth,
-            height: textureHeight,
-            bitsPerComponent: 8,
-            bytesPerRow: textureWidth * 4,
-            space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
-        
-        // Draw a horizontal gradient that fades from transparent -> white -> transparent
-        // This creates the soft beam effect
-        for x in 0..<textureWidth {
-            // Calculate alpha based on distance from center (bell curve / gaussian-like)
-            let centerX = CGFloat(textureWidth) / 2.0
-            let distFromCenter = abs(CGFloat(x) - centerX) / centerX  // 0 at center, 1 at edges
-            
-            // Smooth falloff using cosine (softer than linear)
-            let alpha = cos(distFromCenter * .pi / 2)  // 1 at center, 0 at edges
-            let alphaByte = UInt8(max(0, min(255, alpha * 255)))
-            
-            // Draw vertical line at this x position
-            context.setFillColor(red: 1.0, green: 1.0, blue: 1.0, alpha: CGFloat(alphaByte) / 255.0)
-            context.fill(CGRect(x: x, y: 0, width: 1, height: textureHeight))
-        }
-        
-        // Also add vertical fade at top and bottom for softer edges
-        for y in 0..<textureHeight {
-            let centerY = CGFloat(textureHeight) / 2.0
-            let distFromCenterY = abs(CGFloat(y) - centerY) / centerY
-            
-            // Only fade the outer 20% at top and bottom
-            if distFromCenterY > 0.8 {
-                let fadeAmount = (distFromCenterY - 0.8) / 0.2  // 0 to 1 in outer 20%
-                let alpha = 1.0 - fadeAmount
-                
-                // Overlay a semi-transparent black to fade out the edges
-                context.setFillColor(red: 0, green: 0, blue: 0, alpha: 1.0 - alpha)
-                context.setBlendMode(.destinationOut)
-                context.fill(CGRect(x: 0, y: y, width: textureWidth, height: 1))
-                context.setBlendMode(.normal)
-            }
-        }
-        
-        guard let cgImage = context.makeImage() else { return nil }
-        
-        #if DEBUG
-        print("Created soft gradient caustic texture: \(textureWidth)x\(textureHeight)")
-        #endif
-        
-        return SKTexture(cgImage: cgImage)
     }
     
     // Cache Calendar for performance (avoid repeated allocations)
@@ -676,6 +615,7 @@ class GameScene: SKScene {
         let x = CGFloat.random(in: (bounds.minX + 100)...(bounds.maxX - 100))
         let y = CGFloat.random(in: (bounds.minY + 100)...(bounds.maxY - 100))
         let fish = FishNode(species: spec, position: CGPoint(x: x, y: y))
+        fish.scaleFactor = 0.3  // Start at 30% size, grow by eating
         fish.onReproduction = { [weak self] (parentSpecies, parentPos, parent1Name, parent2Name) in
             self?.spawnBaby(species: parentSpecies, position: parentPos, parent1Name: parent1Name, parent2Name: parent2Name)
         }
