@@ -2,8 +2,6 @@
 
 A beautiful, relaxing virtual aquarium experience available on iOS and Web.
 
-![Spirit Aquarium](aquarium/aquarium%20Shared/Assets.xcassets/AppIcon.appiconset/Icon.png)
-
 ## ✨ Features
 
 - **Peaceful Gameplay** — Watch your fish swim, eat, grow, and thrive in a serene underwater environment
