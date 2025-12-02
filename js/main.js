@@ -82,6 +82,8 @@ function init() {
                 ripples.push(new Ripple(width/2, height/2));
                 sound.playFishSplash();
                 UI.updateFishCounts(fishes);
+                // Log purchase event to Spirit Memories
+                UI.addPurchaseEvent(f.name, species.name);
             }
         },
         onBackgroundChange: (bgId) => {
@@ -561,6 +563,9 @@ const world = {
     onBirth: (parent1Name, parent2Name, babyNames, speciesName) => {
         UI.addBirthEvent(parent1Name, parent2Name, babyNames, speciesName);
         UI.updateFishCounts(fishes);
+    },
+    onGrewUp: (name, speciesName) => {
+        UI.addGrewUpEvent(name, speciesName);
     },
     spawnParticles: (x, y, count, color, speed = 2) => {
         for(let i=0; i<count; i++) {

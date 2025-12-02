@@ -149,6 +149,7 @@ export class Fish {
         this.facingLeft = this.vel.x < 0; // Track facing direction for smooth turns
         this.visualAngle = this.angle; // Decoupled visual rotation for smoothing
         this.isDrowsy = false; // Slower movement at night
+        this.hasLoggedAdulthood = !isBorn; // Purchased fish start as adults, born fish need to grow
 
         this.generateName();
     }
@@ -727,12 +728,23 @@ export class Fish {
         this.fullCooldown = rand(5000, 30000);
         }
 
-        const maxSize = this.species.size * 3.0; 
+        const maxSize = this.species.size * 3.0;
+        const adultSize = this.species.size; // Base species size = adult
+        const wasNotAdult = this.size < adultSize;
+        
         if (this.size < maxSize) {
             // Predators grow more from eating prey
             const growthAmount = atePrey ? 1.5 : 0.8;
             this.size += growthAmount; 
             this.maxSpeed = Math.max(this.species.speed * 0.5, this.maxSpeed - 0.02);
+            
+            // Log "grew up" event when fish reaches adult size for the first time
+            if (wasNotAdult && this.size >= adultSize && !this.hasLoggedAdulthood) {
+                this.hasLoggedAdulthood = true;
+                if (world.onGrewUp) {
+                    world.onGrewUp(this.name, this.species.name);
+                }
+            }
         }
 
         // Different particle effects

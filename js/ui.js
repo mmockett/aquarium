@@ -554,7 +554,7 @@ function renderMemories() {
                     </div>
                 </div>
             `;
-        } else {
+        } else if (event.type === 'birth') {
             return `
                 <div class="event-row">
                     <div class="event-icon birth">
@@ -570,6 +570,60 @@ function renderMemories() {
                         </div>
                         <div class="event-details">
                             ${event.speciesName} <span>•</span> Parents: ${event.parent1} & ${event.parent2}
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (event.type === 'purchased') {
+            return `
+                <div class="event-row">
+                    <div class="event-icon purchased">
+                        ${thumbPath 
+                            ? `<img src="${thumbPath}" alt="${event.speciesName}">`
+                            : '<i data-lucide="shopping-bag" class="icon-event"></i>'
+                        }
+                    </div>
+                    <div class="event-info">
+                        <div class="event-title">
+                            <i data-lucide="shopping-bag" class="icon-title purchased"></i>
+                            <span>${event.name} joined!</span>
+                        </div>
+                        <div class="event-details">
+                            ${event.speciesName} <span>•</span> Welcomed to the aquarium
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (event.type === 'grewUp') {
+            return `
+                <div class="event-row">
+                    <div class="event-icon grewUp">
+                        ${thumbPath 
+                            ? `<img src="${thumbPath}" alt="${event.speciesName}">`
+                            : '<i data-lucide="trending-up" class="icon-event"></i>'
+                        }
+                    </div>
+                    <div class="event-info">
+                        <div class="event-title">
+                            <i data-lucide="trending-up" class="icon-title grewUp"></i>
+                            <span>${event.name} grew up!</span>
+                        </div>
+                        <div class="event-details">
+                            ${event.speciesName} <span>•</span> Reached adulthood
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Fallback for unknown event types
+            return `
+                <div class="event-row">
+                    <div class="event-icon">
+                        <i data-lucide="info" class="icon-event"></i>
+                    </div>
+                    <div class="event-info">
+                        <div class="event-title">
+                            <span>Unknown event</span>
                         </div>
                     </div>
                 </div>
@@ -639,6 +693,42 @@ export function addBirthEvent(parent1Name, parent2Name, babyNames, speciesName) 
 // Legacy function for compatibility
 export function addToGraveyard(fish, deadCount) {
     addDeathEvent(fish);
+}
+
+export function addPurchaseEvent(name, speciesName) {
+    const event = {
+        type: 'purchased',
+        name: name,
+        speciesName: speciesName,
+        timestamp: Date.now()
+    };
+    
+    gameState.spiritEvents.unshift(event);
+    if (gameState.spiritEvents.length > 50) {
+        gameState.spiritEvents = gameState.spiritEvents.slice(0, 50);
+    }
+    
+    gameState.unreadMemories++;
+    updateMemoriesBadge();
+    saveState();
+}
+
+export function addGrewUpEvent(name, speciesName) {
+    const event = {
+        type: 'grewUp',
+        name: name,
+        speciesName: speciesName,
+        timestamp: Date.now()
+    };
+    
+    gameState.spiritEvents.unshift(event);
+    if (gameState.spiritEvents.length > 50) {
+        gameState.spiritEvents = gameState.spiritEvents.slice(0, 50);
+    }
+    
+    gameState.unreadMemories++;
+    updateMemoriesBadge();
+    saveState();
 }
 
 // ===== Restart Confirmation =====

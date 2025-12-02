@@ -236,6 +236,8 @@ body, html {
 
 .icon-title.death { color: rgba(255, 55, 95, 0.8); }
 .icon-title.birth { color: var(--accent-yellow); }
+.icon-title.purchased { color: rgba(100, 210, 255, 0.9); }
+.icon-title.grewUp { color: rgba(52, 199, 89, 0.9); }
 
 /* Glass Button */
 .glass-btn {
@@ -898,6 +900,14 @@ body, html {
     background: rgba(255, 214, 10, 0.15);
 }
 
+.event-icon.purchased {
+    background: rgba(100, 210, 255, 0.15);
+}
+
+.event-icon.grewUp {
+    background: rgba(52, 199, 89, 0.15);
+}
+
 .event-icon img {
     width: 28px;
     height: 28px;
@@ -929,6 +939,8 @@ body, html {
 
 .event-title-icon.death { color: rgba(255, 55, 95, 0.8); }
 .event-title-icon.birth { color: var(--accent-yellow); }
+.event-title-icon.purchased { color: rgba(100, 210, 255, 0.9); }
+.event-title-icon.grewUp { color: rgba(52, 199, 89, 0.9); }
 
 .event-details {
     font-size: 12px;
