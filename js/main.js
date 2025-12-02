@@ -80,7 +80,7 @@ function init() {
                 f.pos.y = height / 2;
                 fishes.push(f);
                 ripples.push(new Ripple(width/2, height/2));
-                sound.playChime();
+                sound.playFishSplash();
                 UI.updateFishCounts(fishes);
             }
         },
@@ -265,7 +265,7 @@ function handleInput(e) {
 
         if (clickedFish) {
             clickedFish.talk();
-            sound.playChime(); 
+            sound.playFishSplash(); 
         } else {
             ripples.push(new Ripple(x, y));
         }
@@ -316,10 +316,10 @@ function spawnRainbowSpirit() {
         }, i * 100);
     }
     
-    // Play sounds
-    sound.playChime();
-    setTimeout(() => sound.playChime(), 200);
-    setTimeout(() => sound.playChime(), 400);
+    // Play sounds (dramatic entrance)
+    sound.playFishSplash();
+    setTimeout(() => sound.playFishSplash(), 200);
+    setTimeout(() => sound.playFishSplash(), 400);
     
     // Show a special toast
     UI.showToast('🌈 A Rainbow Spirit has appeared!', 'sparkles', 5000);
@@ -716,7 +716,8 @@ function loop() {
         if (now - lastAutoFeedTime > interval) {
             if (particles.length < 200) {
                 particles.push(new Food(rand(50, width - 50), -10));
-                if(Math.random() < 0.1) sound.playBloop(2.0); 
+                // Occasional subtle sound for auto-feed (10% chance)
+                if(Math.random() < 0.1) sound.playBloop(); 
             }
             lastAutoFeedTime = now;
         }

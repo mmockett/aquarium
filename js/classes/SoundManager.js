@@ -4,16 +4,23 @@ export class SoundManager {
         this.masterGain = null;
         this.isEnabled = true; // Sound enabled by default
         
-        // Buffers
-        this.buffers = {
-            bloop: null,
-            chime: null,
-            death: null,
-            ambience: null
-        };
+        // Audio buffers (loaded from MP3 files)
+        this.buffers = {};
         
+        // Ambient audio
         this.ambienceNode = null;
-        this.lastPlayTime = 0;
+        this.ambienceGain = null;
+        
+        // Throttling
+        this.lastPlayTime = {};
+        
+        // Sound file paths
+        this.soundFiles = {
+            ocean: 'assets/sounds/Ocean noise.mp3',
+            fishSplash: 'assets/sounds/Fish adding to water.mp3',
+            babyBorn: 'assets/sounds/Baby born.mp3',
+            predatorDart: 'assets/sounds/Predator darting.mp3'
+        };
         
         // Load saved preference
         this.loadPreference();
@@ -38,113 +45,75 @@ export class SoundManager {
         }
     }
 
-    init() {
+    async init() {
         if (this.ctx) return;
+        
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AudioContext();
+        
+        // Master gain
         this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.value = this.isEnabled ? 0.4 : 0.0;
+        this.masterGain.gain.value = this.isEnabled ? 0.6 : 0.0;
         this.masterGain.connect(this.ctx.destination);
         
-        // Generate all sound buffers once
-        this.generateBuffers();
+        // Load all sound files
+        await this.loadSounds();
         
+        // Start ambient ocean sound
         this.startAmbience();
     }
 
-    generateBuffers() {
-        const sr = this.ctx.sampleRate;
+    async loadSounds() {
+        const loadPromises = Object.entries(this.soundFiles).map(async ([name, path]) => {
+            try {
+                const response = await fetch(path);
+                const arrayBuffer = await response.arrayBuffer();
+                this.buffers[name] = await this.ctx.decodeAudioData(arrayBuffer);
+            } catch (e) {
+                console.warn(`Failed to load sound: ${name}`, e);
+            }
+        });
         
-        // 1. Bloop Buffer (Sine sweep)
-        const bloopLen = 0.15;
-        const bloopBuf = this.ctx.createBuffer(1, bloopLen * sr, sr);
-        const bData = bloopBuf.getChannelData(0);
-        for(let i=0; i<bData.length; i++) {
-            const t = i / sr;
-            // Frequency sweep down
-            const freq = 600 - (t * 3000); 
-            // Envelope
-            const env = 1 - (t / bloopLen);
-            bData[i] = Math.sin(2 * Math.PI * freq * t) * env * 0.5;
-        }
-        this.buffers.bloop = bloopBuf;
-
-        // 2. Chime Buffer (Simple chord)
-        const chimeLen = 1.5;
-        const chimeBuf = this.ctx.createBuffer(1, chimeLen * sr, sr);
-        const cData = chimeBuf.getChannelData(0);
-        const freqs = [523.25, 659.25, 783.99, 1046.50];
-        for(let i=0; i<cData.length; i++) {
-            let sample = 0;
-            const t = i / sr;
-            freqs.forEach((f, idx) => {
-                // Staggered entry
-                if(t > idx * 0.05) {
-                    sample += Math.sin(2 * Math.PI * f * t) * 0.1;
-                }
-            });
-            // Exp decay
-            cData[i] = sample * Math.exp(-3 * t);
-        }
-        this.buffers.chime = chimeBuf;
-
-        // 3. Ambience Buffer (Brown Noise Loop - 2 seconds)
-        const ambLen = 2.0;
-        const ambBuf = this.ctx.createBuffer(1, ambLen * sr, sr);
-        const aData = ambBuf.getChannelData(0);
-        let lastOut = 0;
-        for(let i=0; i<aData.length; i++) {
-            const white = Math.random() * 2 - 1;
-            aData[i] = (lastOut + (0.02 * white)) / 1.02;
-            lastOut = aData[i];
-            aData[i] *= 3.5; 
-        }
-        this.buffers.ambience = ambBuf;
-        
-        // 4. Death Toll (Low Rumble)
-        const dLen = 1.0;
-        const dBuf = this.ctx.createBuffer(1, dLen * sr, sr);
-        const dData = dBuf.getChannelData(0);
-        for(let i=0; i<dData.length; i++) {
-            const t = i/sr;
-            // Low frequency with noise
-            dData[i] = (Math.sin(2 * Math.PI * 60 * t) + (Math.random()*0.2)) * (1 - t/dLen);
-        }
-        this.buffers.death = dBuf;
+        await Promise.all(loadPromises);
     }
 
     startAmbience() {
-        if(this.ambienceNode) return;
+        if (this.ambienceNode || !this.buffers.ocean) return;
         
-        // Lowpass Filter
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 400;
-
-        const noise = this.ctx.createBufferSource();
-        noise.buffer = this.buffers.ambience;
-        noise.loop = true;
+        // Create gain node for ambient volume control
+        this.ambienceGain = this.ctx.createGain();
+        this.ambienceGain.gain.value = 0.4; // Ambient at 40% of master
+        this.ambienceGain.connect(this.masterGain);
         
-        noise.connect(filter);
-        filter.connect(this.masterGain);
-        noise.start();
-        this.ambienceNode = noise;
+        // Create and start looping ocean sound
+        const source = this.ctx.createBufferSource();
+        source.buffer = this.buffers.ocean;
+        source.loop = true;
+        source.connect(this.ambienceGain);
+        source.start();
+        
+        this.ambienceNode = source;
     }
 
-    playSound(bufferName, rate = 1.0, volume = 1.0) {
-        if (!this.isEnabled || !this.ctx) return;
+    stopAmbience() {
+        if (this.ambienceNode) {
+            this.ambienceNode.stop();
+            this.ambienceNode = null;
+        }
+    }
 
-        // Global throttle: Max 1 sound per 50ms
+    playSound(bufferName, volume = 1.0, throttleMs = 50) {
+        if (!this.isEnabled || !this.ctx || !this.buffers[bufferName]) return;
+
+        // Per-sound throttle
         const now = Date.now();
-        if (now - this.lastPlayTime < 50) return;
-        this.lastPlayTime = now;
-
-        const buf = this.buffers[bufferName];
-        if (!buf) return;
+        if (this.lastPlayTime[bufferName] && now - this.lastPlayTime[bufferName] < throttleMs) {
+            return;
+        }
+        this.lastPlayTime[bufferName] = now;
 
         const source = this.ctx.createBufferSource();
-        source.buffer = buf;
-        source.playbackRate.value = rate;
+        source.buffer = this.buffers[bufferName];
 
         const gain = this.ctx.createGain();
         gain.gain.value = volume;
@@ -154,9 +123,38 @@ export class SoundManager {
         source.start();
     }
 
-    playBloop(pitch = 1.0) { this.playSound('bloop', pitch, 0.3); }
-    playChime() { this.playSound('chime', 1.0, 0.4); }
-    playDeathToll() { this.playSound('death', 1.0, 0.5); }
+    // === Public Sound Methods ===
+    
+    // Play when fish is purchased/added to aquarium
+    playFishSplash() {
+        this.playSound('fishSplash', 0.7, 100);
+    }
+    
+    // Play when a baby is born
+    playBabyBorn() {
+        this.playSound('babyBorn', 0.3, 100); // 50% volume as per Swift version
+    }
+    
+    // Play when predator darts at prey
+    playPredatorDart() {
+        this.playSound('predatorDart', 0.5, 200);
+    }
+    
+    // Legacy methods for compatibility - map to new sounds
+    playChime() {
+        this.playFishSplash();
+    }
+    
+    playBloop(pitch = 1.0) {
+        // For food drops, use a quieter fish splash or skip
+        // This was used for food drops - we can keep it silent or use a subtle sound
+        this.playSound('fishSplash', 0.2, 100);
+    }
+    
+    playDeathToll() {
+        // No death sound file provided - keep silent for now
+        // Could add a subtle sound later
+    }
 
     setEnabled(enabled) {
         this.isEnabled = enabled;
@@ -170,7 +168,7 @@ export class SoundManager {
         if (this.ctx.state === 'suspended') this.ctx.resume();
         
         // Fade in/out over 0.5 seconds
-        const targetVolume = enabled ? 0.4 : 0.0;
+        const targetVolume = enabled ? 0.6 : 0.0;
         this.masterGain.gain.setTargetAtTime(targetVolume, this.ctx.currentTime, 0.15);
     }
 

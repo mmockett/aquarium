@@ -201,7 +201,7 @@ export class Fish {
         const spawnPos = new Vector((this.pos.x + mate.pos.x) / 2, (this.pos.y + mate.pos.y) / 2);
         
         world.showToast(`New Spirits! ${this.name} and ${mate.name} welcome ${numOffspring} babies.`, 'sparkles');
-        world.sound.playChime(); 
+        world.sound.playBabyBorn(); 
 
         const babyNames = [];
         for (let i = 0; i < numOffspring; i++) {
@@ -377,6 +377,8 @@ export class Fish {
                  // Start hunt timer if this is a new target
                  if (this.huntingTarget !== closestPrey) {
                      this.huntStartTime = world.now;
+                     // Play dart sound when predator locks onto new prey
+                     world.sound.playPredatorDart();
                  }
                  this.huntingTarget = closestPrey; 
                  
@@ -506,8 +508,7 @@ export class Fish {
                 this.huntingTarget.isDead = true;
                 this.huntingTarget.deathReason = `Eaten by ${this.name}`;
                 this.huntingTarget.isEaten = true;
-                    this.feed(world, true); // true = ate prey
-                world.sound.playBloop(0.5); 
+                    this.feed(world, true); // true = ate prey 
                     // Long cooldown after eating prey (2-5 minutes)
                     this.huntingCooldown = rand(120 * 1000, 300 * 1000);
                 this.huntingTarget = null;
