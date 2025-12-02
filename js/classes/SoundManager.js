@@ -2,7 +2,7 @@ export class SoundManager {
     constructor() {
         this.ctx = null;
         this.masterGain = null;
-        this.isMuted = true;
+        this.isEnabled = true; // Sound enabled by default
         
         // Buffers
         this.buffers = {
@@ -14,6 +14,28 @@ export class SoundManager {
         
         this.ambienceNode = null;
         this.lastPlayTime = 0;
+        
+        // Load saved preference
+        this.loadPreference();
+    }
+
+    loadPreference() {
+        try {
+            const saved = localStorage.getItem('spiritAquarium_soundEnabled');
+            if (saved !== null) {
+                this.isEnabled = saved === 'true';
+            }
+        } catch (e) {
+            console.warn('Failed to load sound preference:', e);
+        }
+    }
+
+    savePreference() {
+        try {
+            localStorage.setItem('spiritAquarium_soundEnabled', this.isEnabled.toString());
+        } catch (e) {
+            console.warn('Failed to save sound preference:', e);
+        }
     }
 
     init() {
@@ -21,7 +43,7 @@ export class SoundManager {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AudioContext();
         this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.value = 0.0; 
+        this.masterGain.gain.value = this.isEnabled ? 0.4 : 0.0;
         this.masterGain.connect(this.ctx.destination);
         
         // Generate all sound buffers once
@@ -110,7 +132,7 @@ export class SoundManager {
     }
 
     playSound(bufferName, rate = 1.0, volume = 1.0) {
-        if (this.isMuted || !this.ctx) return;
+        if (!this.isEnabled || !this.ctx) return;
 
         // Global throttle: Max 1 sound per 50ms
         const now = Date.now();
@@ -136,22 +158,33 @@ export class SoundManager {
     playChime() { this.playSound('chime', 1.0, 0.4); }
     playDeathToll() { this.playSound('death', 1.0, 0.5); }
 
-    toggle() {
-        if (!this.ctx) this.init();
-        if (this.ctx.state === 'suspended') this.ctx.resume();
-
-        this.isMuted = !this.isMuted;
-        const btn = document.getElementById('soundToggleBtn');
+    setEnabled(enabled) {
+        this.isEnabled = enabled;
+        this.savePreference();
         
-        if (!this.isMuted) {
-            this.masterGain.gain.setTargetAtTime(0.4, this.ctx.currentTime, 0.5);
-            btn.classList.remove('muted');
-            btn.style.textDecoration = 'none';
-        } else {
-            this.masterGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1);
-            btn.classList.add('muted');
-            btn.style.textDecoration = 'line-through';
+        if (!this.ctx) {
+            if (enabled) this.init();
+            return;
+        }
+        
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        
+        // Fade in/out over 0.5 seconds
+        const targetVolume = enabled ? 0.4 : 0.0;
+        this.masterGain.gain.setTargetAtTime(targetVolume, this.ctx.currentTime, 0.15);
+    }
+
+    toggle() {
+        this.setEnabled(!this.isEnabled);
+        return this.isEnabled;
+    }
+
+    // Auto-start sound on first user interaction (required by browsers)
+    autoStart() {
+        if (!this.ctx) {
+            this.init();
+        } else if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
         }
     }
 }
-

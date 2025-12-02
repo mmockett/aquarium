@@ -70,7 +70,7 @@ function init() {
     // Konami Code listener
     window.addEventListener('keydown', handleKonamiCode);
 
-    // Initialize the new UI system
+    // Initialize the new UI system (pass sound manager for toggle control)
     UI.initUI(SPECIES, {
         onPurchase: (speciesId) => {
             const species = SPECIES.find(s => s.id === speciesId);
@@ -93,7 +93,7 @@ function init() {
         onRestart: () => {
             restartGame();
         }
-    });
+    }, sound);
     
     // Load background based on saved setting
     loadBackground(UI.getSelectedBackground());
@@ -247,6 +247,9 @@ function handleInput(e) {
     const y = e.clientY - rect.top;
 
     resetIdleTimer();
+    
+    // Auto-start sound on first user interaction (browser requirement)
+    sound.autoStart();
 
     if (UI.isTalkModeEnabled()) {
         let clickedFish = null;

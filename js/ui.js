@@ -7,6 +7,7 @@ let gameState = {
     autoFeed: false,
     talkMode: false,
     showDebug: false,
+    soundEnabled: true, // Sound enabled by default
     timeSpeed: 2, // 0=Stopped, 1=Realtime, 2=Normal, 3=Fast
     selectedBackground: 1,
     totalBirths: 0,
@@ -17,6 +18,9 @@ let gameState = {
     fishCounts: {},
     unlockedSpecies: new Set(['basic']) // Track unlocked species
 };
+
+// Sound manager reference (set via initUI)
+let soundManager = null;
 
 // Time speed labels
 const TIME_SPEED_LABELS = ['Stopped', 'Real Time', 'Normal', 'Fast'];
@@ -39,25 +43,37 @@ let onTimeSpeedChange = null;
 let onRestart = null;
 
 // ===== Initialization =====
-export function initUI(species, callbacks = {}) {
+export function initUI(species, callbacks = {}, sound = null) {
     speciesCatalog = species;
     onPurchase = callbacks.onPurchase;
     onBackgroundChange = callbacks.onBackgroundChange;
     onTimeSpeedChange = callbacks.onTimeSpeedChange;
     onRestart = callbacks.onRestart;
+    soundManager = sound;
     
     setupEventListeners();
     renderBackgroundList();
     renderShop();
     updateTimeSlider();
     loadState();
+    
+    // Sync sound toggle with sound manager state
+    if (soundManager) {
+        updateSoundToggle(soundManager.isEnabled);
+    }
 }
 
 function setupEventListeners() {
+    // Auto-start sound on any UI interaction (browser requirement)
+    const autoStartSound = () => {
+        if (soundManager) soundManager.autoStart();
+    };
+    
     // Score pill opens settings
     document.getElementById('scorePill').addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        autoStartSound();
         openSettings();
     });
     
@@ -65,28 +81,38 @@ function setupEventListeners() {
     document.getElementById('autoFeedBtn').addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        autoStartSound();
         toggleAutoFeed();
     });
     
     document.getElementById('talkBtn').addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        autoStartSound();
         toggleTalkMode();
     });
     
     document.getElementById('memoriesBtn').addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        autoStartSound();
         openMemories();
     });
     
     document.getElementById('shopBtn').addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        autoStartSound();
         openShop();
     });
     
     // Settings
+    document.getElementById('soundToggle').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleSound();
+    });
+    
     document.getElementById('debugToggle').addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -201,6 +227,31 @@ function toggleTalkMode() {
 
 export function isTalkModeEnabled() {
     return gameState.talkMode;
+}
+
+// ===== Sound =====
+function toggleSound() {
+    if (soundManager) {
+        const newState = soundManager.toggle();
+        updateSoundToggle(newState);
+        showToast(
+            newState ? 'Sound On' : 'Sound Off',
+            newState ? 'volume-2' : 'volume-x'
+        );
+    }
+}
+
+function updateSoundToggle(enabled) {
+    const switchEl = document.getElementById('soundSwitch');
+    const iconEl = document.querySelector('#soundToggle .icon-sm');
+    
+    switchEl.classList.toggle('active', enabled);
+    
+    // Update icon to reflect state
+    if (iconEl) {
+        iconEl.setAttribute('data-lucide', enabled ? 'volume-2' : 'volume-x');
+        refreshIcons();
+    }
 }
 
 // ===== Debug =====
