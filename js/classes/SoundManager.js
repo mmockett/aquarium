@@ -166,7 +166,7 @@ export class SoundManager {
         }
         
         if (this.ctx.state === 'suspended') this.ctx.resume();
-        
+
         // Fade in/out over 0.5 seconds
         const targetVolume = enabled ? 0.6 : 0.0;
         this.masterGain.gain.setTargetAtTime(targetVolume, this.ctx.currentTime, 0.15);
