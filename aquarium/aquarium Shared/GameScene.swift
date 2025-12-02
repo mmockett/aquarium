@@ -107,8 +107,8 @@ class GameScene: SKScene {
         if GameData.shared.hasSavedFish {
             restoreSavedFish()
         } else {
-            // Spawn one initial fish
-            spawnFish()
+            // Spawn one initial fish (not a purchase)
+            spawnFish(fromPurchase: false)
         }
         
         // Set up callbacks for settings
@@ -141,8 +141,8 @@ class GameScene: SKScene {
         }
         bloodMistNodes.removeAll()
         
-        // Spawn one initial fish
-        spawnFish()
+        // Spawn one initial fish (not a purchase - it's a restart)
+        spawnFish(fromPurchase: false)
     }
     
     /// Restore fish from saved state
@@ -607,8 +607,8 @@ class GameScene: SKScene {
         scene.scaleMode = .aspectFill
         return scene
     }
-    
-    func spawnFish(speciesId: String = "basic") {
+
+    func spawnFish(speciesId: String = "basic", fromPurchase: Bool = true) {
         guard let spec = SpeciesCatalog.shared.species(for: speciesId) else { return }
         // Use cached visible bounds to spawn within screen
         let bounds = cachedVisibleBounds.isEmpty ? CGRect(origin: .zero, size: size) : cachedVisibleBounds
@@ -622,6 +622,12 @@ class GameScene: SKScene {
         addChild(fish)
         fish.addLabelsToScene()  // Add labels to scene (not fish) for efficiency
         fishNodes.append(fish)
+        
+        // Log purchase event to Spirit Memories and play sound (only for shop purchases, not initial spawn)
+        if fromPurchase {
+            GameData.shared.addPurchaseEvent(name: fish.fishName, speciesName: spec.name)
+            SoundManager.shared.playFishSplash()
+        }
     }
     
     func spawnBaby(species: Species, position: CGPoint, parent1Name: String? = nil, parent2Name: String? = nil) {
@@ -640,7 +646,7 @@ class GameScene: SKScene {
         baby.addLabelsToScene()  // Add labels to scene (not fish) for efficiency
         fishNodes.append(baby)
         
-        // Log birth event to Spirit Memories
+        // Log birth event to Spirit Memories and play sound
         if let p1 = parent1Name, let p2 = parent2Name {
             GameData.shared.addBirthEvent(
                 parent1: p1,
@@ -648,6 +654,7 @@ class GameScene: SKScene {
                 babyNames: [baby.fishName],
                 speciesName: species.name
             )
+            SoundManager.shared.playBabyBorn()
         }
     }
     
@@ -905,18 +912,27 @@ extension GameScene {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         for t in touches {
             let loc = t.location(in: self)
+            
             if GameData.shared.isTalkMode {
-                // Check if we tapped on a fish
+                // Check if we tapped on a fish - use expanded hit area for smaller fish
+                var tappedFish: FishNode? = nil
                 for fish in fishNodes {
-                    if fish.contains(loc) && !fish.isDead {
-                        fish.speak()
-                        return
-        }
-    }
+                    if !fish.isDead && fish.hitTest(point: loc) {
+                        tappedFish = fish
+                        break
+                    }
+                }
+                
+                if let fish = tappedFish {
+                    fish.speak()
+                } else {
+                    // No fish tapped - spawn food (feeding still works in talk mode)
+                    spawnFood(at: loc)
+                }
             } else {
                 spawnFood(at: loc)
+            }
         }
-    }
     }
 }
 #endif

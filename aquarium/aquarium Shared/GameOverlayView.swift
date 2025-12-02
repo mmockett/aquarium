@@ -1,20 +1,42 @@
 import SwiftUI
 import UIKit
 import StoreKit
+import TipKit
 
 // MARK: - iOS 26 Native Liquid Glass UI
 // Uses the native .glassEffect() modifier from iOS 26 SDK
 // Uses native SwiftUI sheets with presentationDetents for drawer behavior
 
+// MARK: - Welcome Tip (TipKit)
+struct WelcomeTip: Tip {
+    var title: Text {
+        Text("Welcome!")
+    }
+    
+    var message: Text? {
+        Text("Tap here for tips and settings")
+    }
+    
+    var image: Image? {
+        Image(systemName: "hand.tap.fill")
+    }
+}
+
 struct GameOverlayView: View {
     @StateObject var gameData = GameData.shared
     var onPurchase: ((String) -> Void)?
+    
+    // TipKit
+    private let welcomeTip = WelcomeTip()
     
     // Toast message state
     @State private var toastMessage: String = ""
     @State private var toastIcon: String = ""
     @State private var toastColor: Color = .white
     @State private var showToast: Bool = false
+    
+    // Stuck player alert
+    @State private var showStuckAlert: Bool = false
     
     var body: some View {
         ZStack {
@@ -65,6 +87,7 @@ struct GameOverlayView: View {
                             // Score Pill (tappable to open settings)
                             Button(action: {
                                 HapticManager.shared.buttonTap()
+                                welcomeTip.invalidate(reason: .actionPerformed)
                                 gameData.showSettings = true
                             }) {
                                 HStack(spacing: 6) {
@@ -78,9 +101,11 @@ struct GameOverlayView: View {
                                 }
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
+                                .contentShape(Capsule())  // Make entire pill tappable
                                 .glassEffect(.regular, in: Capsule())
                             }
                             .buttonStyle(.plain)
+                            .popoverTip(welcomeTip, arrowEdge: .bottom)
                             
                             Spacer()
                             
@@ -137,6 +162,26 @@ struct GameOverlayView: View {
             SettingsSheetContent(gameData: gameData)
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
+        }
+        // Alert when player is stuck (no fish and can't afford any)
+        .alert("Oh no!", isPresented: $showStuckAlert) {
+            Button("Restart") {
+                gameData.restartGame()
+            }
+        } message: {
+            Text("Your aquarium is now lifeless, and you lack the orbs to purchase a new fish for the tank. Your only option is to begin anew.")
+        }
+        // Check if player becomes stuck
+        .onChange(of: gameData.isPlayerStuck) { _, isStuck in
+            if isStuck {
+                // Small delay to let the UI settle after fish death
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    // Double-check they're still stuck (in case of race condition)
+                    if gameData.isPlayerStuck {
+                        showStuckAlert = true
+                    }
+                }
+            }
         }
     }
     
@@ -198,6 +243,7 @@ struct ToastView: View {
 struct SettingsSheetContent: View {
     @ObservedObject var gameData: GameData
     @State private var showRestartConfirmation = false
+    @State private var isSoundEnabled: Bool = SoundManager.shared.isSoundEnabled
     
     let backgrounds = [
         (id: 1, name: "Ocean Depths"),
@@ -209,6 +255,22 @@ struct SettingsSheetContent: View {
     var body: some View {
         NavigationStack {
             List {
+                // How to Play
+                Section {
+                    NavigationLink {
+                        HowToPlayView()
+                    } label: {
+                        HStack {
+                            Image(systemName: "questionmark.circle.fill")
+                                .foregroundColor(.blue)
+                            Text("How to Play")
+                                .foregroundColor(.primary)
+                        }
+                    }
+                } footer: {
+                    Text("Learn about fish behavior and how to interact with your aquarium")
+                }
+                
                 // Background Selection
                 Section {
                     ForEach(backgrounds, id: \.id) { bg in
@@ -242,6 +304,25 @@ struct SettingsSheetContent: View {
                     }
                 } header: {
                     Text("Background")
+                }
+                
+                // Sound
+                Section {
+                    Toggle(isOn: $isSoundEnabled) {
+                        HStack {
+                            Image(systemName: "speaker.wave.2.fill")
+                                .foregroundColor(.cyan)
+                            Text("Ambient Sound")
+                        }
+                    }
+                    .onChange(of: isSoundEnabled) { _, newValue in
+                        HapticManager.shared.toggleChanged()
+                        SoundManager.shared.isSoundEnabled = newValue
+                    }
+                } header: {
+                    Text("Sound")
+                } footer: {
+                    Text("Play relaxing ocean sounds in the background")
                 }
                 
                 // Time Speed
@@ -909,6 +990,127 @@ struct IAPShopItemRow: View {
     }
 }
 
+// MARK: - How to Play View (Navigation Destination)
+
+struct HowToPlayView: View {
+    var body: some View {
+        List {
+            // Controls Section
+            Section {
+                HowToPlayRow(
+                    icon: "hand.tap.fill",
+                    color: .orange,
+                    title: "Feed Your Fish",
+                    description: "Tap anywhere on the water to drop food. Fish will swim towards it and eat if they are hungry."
+                )
+                
+                HowToPlayRow(
+                    icon: "leaf.fill",
+                    color: .green,
+                    title: "Autofeed",
+                    description: "Enable autofeed to automatically drop food for your fish so they always stay well-fed."
+                )
+                
+                HowToPlayRow(
+                    icon: "sparkles",
+                    color: .yellow,
+                    title: "Spirit Mode",
+                    description: "Enable spirit mode then tap on fish to hear them speak and see their name, age, and hunger level."
+                )
+                
+                HowToPlayRow(
+                    icon: "heart.fill",
+                    color: .pink,
+                    title: "Spirit Memories",
+                    description: "Keep track of births and deaths in your aquarium. Each fish has a unique name and story."
+                )
+                
+                HowToPlayRow(
+                    icon: "cart.fill",
+                    color: .blue,
+                    title: "Shop",
+                    description: "Earn spirit orbs by feeding your fish. Spend your orbs in the shop to unlock new species."
+                )
+            } header: {
+                Text("Controls")
+            }
+            
+            // Fish Behavior Section
+            Section {
+                HowToPlayRow(
+                    icon: "figure.2.arms.open",
+                    color: .cyan,
+                    title: "Schooling",
+                    description: "Fish of the same species swim together in schools. The oldest fish will normally leads the group."
+                )
+                
+                HowToPlayRow(
+                    icon: "heart.circle.fill",
+                    color: .pink,
+                    title: "Breeding",
+                    description: "Well-fed adult fish of the same species may have babies when they spend time together."
+                )
+                
+                HowToPlayRow(
+                    icon: "exclamationmark.triangle.fill",
+                    color: .red,
+                    title: "Predators",
+                    description: "Some fish are predators and will hunt smaller fish. Add predators to your aquarium at your own risk!"
+                )
+                
+                HowToPlayRow(
+                    icon: "moon.fill",
+                    color: .purple,
+                    title: "Day & Night",
+                    description: "Most fish slow down at night, but predators keep hunting. Adjust the day/night cycle speed in settings."
+                )
+                
+                HowToPlayRow(
+                    icon: "arrow.up.circle.fill",
+                    color: .green,
+                    title: "Growth",
+                    description: "Baby fish start small and grow by eating. Babies have a bigger appetite than adults!"
+                )
+            } header: {
+                Text("Fish Behavior")
+            }
+        }
+        .scrollContentBackground(.visible)
+        .navigationTitle("How to Play")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - How to Play Row
+
+struct HowToPlayRow: View {
+    let icon: String
+    let color: Color
+    let title: String
+    let description: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundColor(color)
+                .frame(width: 28)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundColor(.primary)
+                
+                Text(description)
+                    .font(.system(size: 13, design: .rounded))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 // MARK: - Spirit Event Row
 
 struct SpiritEventRow: View {
@@ -920,13 +1122,43 @@ struct SpiritEventRow: View {
         return SpeciesCatalog.shared.allSpecies.first { $0.name == speciesName }?.thumbnailName
     }
     
+    // Background color based on event type
+    private var backgroundColor: Color {
+        switch event.type {
+        case .death: return Color.pink.opacity(0.15)
+        case .birth: return Color.yellow.opacity(0.15)
+        case .purchased: return Color.blue.opacity(0.15)
+        case .grewUp: return Color.green.opacity(0.15)
+        }
+    }
+    
+    // Icon for event type (fallback when no thumbnail)
+    private var eventIcon: String {
+        switch event.type {
+        case .death: return "heart.slash.fill"
+        case .birth: return "sparkles"
+        case .purchased: return "cart.fill"
+        case .grewUp: return "arrow.up.circle.fill"
+        }
+    }
+    
+    // Icon color for event type
+    private var eventIconColor: Color {
+        switch event.type {
+        case .death: return .pink.opacity(0.8)
+        case .birth: return .yellow
+        case .purchased: return .blue
+        case .grewUp: return .green
+        }
+    }
+    
     var body: some View {
         HStack(spacing: 12) {
             // Icon or Thumbnail
             ZStack {
                 // Background circle
                 Circle()
-                    .fill(event.type == .death ? Color.pink.opacity(0.15) : Color.yellow.opacity(0.15))
+                    .fill(backgroundColor)
                     .frame(width: 36, height: 36)
                 
                 // Fish thumbnail if available, otherwise icon
@@ -936,16 +1168,17 @@ struct SpiritEventRow: View {
                         .scaledToFit()
                         .frame(width: 28, height: 28)
                 } else {
-                    Image(systemName: event.type == .death ? "heart.slash.fill" : "sparkles")
+                    Image(systemName: eventIcon)
                         .font(.system(size: 18))
-                        .foregroundColor(event.type == .death ? .pink.opacity(0.8) : .yellow)
+                        .foregroundColor(eventIconColor)
                 }
             }
             .frame(width: 36, height: 36)
             
             // Details
             VStack(alignment: .leading, spacing: 4) {
-                if event.type == .death {
+                switch event.type {
+                case .death:
                     // Death event - name with passed icon
                     HStack(spacing: 4) {
                         Image(systemName: "heart.slash.fill")
@@ -977,7 +1210,8 @@ struct SpiritEventRow: View {
                                 .foregroundColor(.secondary)
                         }
                     }
-                } else {
+                    
+                case .birth:
                     // Birth event - name with born icon
                     let babyNames = event.babyNames?.joined(separator: ", ") ?? "baby"
                     HStack(spacing: 4) {
@@ -1001,6 +1235,36 @@ struct SpiritEventRow: View {
                             .font(.system(size: 12, design: .rounded))
                             .foregroundColor(.secondary)
                     }
+                    
+                case .purchased:
+                    // Purchase event - new fish added
+                    HStack(spacing: 4) {
+                        Image(systemName: "cart.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.blue)
+                        Text("\(event.fishName ?? "A fish") joined the aquarium!")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundColor(.primary)
+                    }
+                    
+                    Text(event.speciesName ?? "")
+                        .font(.system(size: 12, design: .rounded))
+                        .foregroundColor(.secondary)
+                    
+                case .grewUp:
+                    // Grew up event - fish reached adulthood
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.green)
+                        Text("\(event.fishName ?? "A fish") is now an adult!")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundColor(.primary)
+                    }
+                    
+                    Text(event.speciesName ?? "")
+                        .font(.system(size: 12, design: .rounded))
+                        .foregroundColor(.secondary)
                 }
             }
             

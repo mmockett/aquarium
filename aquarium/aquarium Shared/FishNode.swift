@@ -49,6 +49,7 @@ class FishNode: SKNode {
     // Predator hunting state
     var huntingCooldown: CGFloat = 0  // Time until predator can hunt again (seconds)
     var lastAteTime: TimeInterval = 0  // When fish last ate (for hunger calculation)
+    private var wasHuntDarting: Bool = false  // Track previous hunt dart state for sound trigger
     
     // Callbacks - includes parent names for birth event logging
     var onReproduction: ((Species, CGPoint, String, String) -> Void)?  // (species, position, parent1Name, parent2Name)
@@ -62,6 +63,7 @@ class FishNode: SKNode {
     // Growth
     var scaleFactor: CGFloat = 1.0
     var isAdult: Bool { scaleFactor >= 0.95 }
+    private var hasLoggedAdulthood: Bool = false  // Track if we've logged the grown-up event
     
     // Smooth Movement State
     private var targetHeading: CGFloat = 0          // Where we WANT to face (radians)
@@ -470,9 +472,16 @@ class FishNode: SKNode {
         // Growth by Feeding - slow growth (10x slower than before)
         // At 0.5% per meal, fish need ~140 meals to grow from 30% to 100%
         if scaleFactor < 1.0 {
+            let wasNotAdult = !isAdult
             scaleFactor += 0.005 // Grow 0.5% per meal
             if scaleFactor > 1.0 { scaleFactor = 1.0 }
             // Label position will auto-update in updateLabelPosition() based on new scaleFactor
+            
+            // Log grown-up event when fish becomes an adult
+            if wasNotAdult && isAdult && !hasLoggedAdulthood {
+                hasLoggedAdulthood = true
+                GameData.shared.addGrownUpEvent(name: fishName, speciesName: species.name)
+            }
         }
         
         // Predators have a longer cooldown after eating (set in hunting logic when catching prey)
@@ -855,6 +864,18 @@ class FishNode: SKNode {
         return hypot(self.position.x - other.position.x, self.position.y - other.position.y)
     }
     
+    /// Hit test with expanded tap target for smaller fish
+    /// Minimum tap target of 44pt (Apple HIG recommendation) ensures small fish are tappable
+    func hitTest(point: CGPoint) -> Bool {
+        let dist = distance(toPoint: point)
+        // Fish visual size is approximately species.size * scaleFactor
+        let fishRadius = species.size * scaleFactor * 0.5
+        // Minimum tap target of 44pt radius (88pt diameter) for accessibility
+        // Larger fish use their actual size
+        let tapRadius = max(fishRadius, 44.0)
+        return dist < tapRadius
+    }
+    
     // Squared distance - faster when only comparing distances (avoids sqrt)
     @inline(__always)
     private func distanceSquared(to other: FishNode) -> CGFloat {
@@ -1045,6 +1066,10 @@ class FishNode: SKNode {
                         // Predators dart when actively chasing prey
                         let dartDistSq: CGFloat = 200 * 200
                         if bestDistSq < dartDistSq { 
+                            // Play sound when predator starts darting (not every frame)
+                            if !wasHuntDarting {
+                                SoundManager.shared.playPredatorDart()
+                            }
                             shouldDart = true 
                             targetDistance = bestDist
                         }
@@ -1303,6 +1328,11 @@ class FishNode: SKNode {
         if targetDir.magnitude() > 0.01 {
             targetDir.normalize()
         }
+        
+        // Track hunt darting state for sound trigger (only for predators hunting prey, not food)
+        // shouldDart is true for both food and prey, but we only want sound for prey hunting
+        let isHuntDarting = shouldDart && species.isPredator && currentFoodTarget == nil
+        wasHuntDarting = isHuntDarting
         
         return (targetDir, shouldDart, targetDistance)
     }

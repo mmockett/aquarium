@@ -2,14 +2,18 @@ import UIKit
 import SpriteKit
 import GameplayKit
 import SwiftUI
+import TipKit
 
 class GameViewController: UIViewController {
     
     private var loadingView: UIView?
     private var skView: SKView!
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        // Configure TipKit for first-launch tips
+        configureTipKit()
         
         // Setup SKView immediately
         skView = self.view as? SKView
@@ -24,6 +28,18 @@ class GameViewController: UIViewController {
         // Load game asynchronously
         Task {
             await loadGame()
+        }
+    }
+    
+    private func configureTipKit() {
+        do {
+            // Configure TipKit - tips show once and are remembered
+            try Tips.configure([
+                .displayFrequency(.immediate),
+                .datastoreLocation(.applicationDefault)
+            ])
+        } catch {
+            print("TipKit configuration error: \(error)")
         }
     }
     
@@ -62,7 +78,7 @@ class GameViewController: UIViewController {
         spinner.startAnimating()
         spinner.translatesAutoresizingMaskIntoConstraints = false
         loading.addSubview(spinner)
-        
+            
         // Loading text
         let loadingLabel = UILabel()
         loadingLabel.text = "Loading..."
@@ -135,13 +151,28 @@ class GameViewController: UIViewController {
         
         hostingController.didMove(toParent: self)
         
-        // Fade out loading screen
+        // Fade out loading screen and start ambient audio
         UIView.animate(withDuration: 0.3, delay: 0.1, options: .curveEaseOut) {
             self.loadingView?.alpha = 0
         } completion: { _ in
             self.loadingView?.removeFromSuperview()
             self.loadingView = nil
+            
+            // Start ambient ocean sound with 3 second fade-in
+            SoundManager.shared.startAmbient(fadeInDuration: 3.0)
         }
+    }
+    
+    // MARK: - App Lifecycle for Audio
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        SoundManager.shared.handleEnterBackground()
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        SoundManager.shared.handleEnterForeground()
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {

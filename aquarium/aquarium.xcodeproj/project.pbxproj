@@ -43,6 +43,8 @@
 				"River Spirit_config.json",
 				"Shadow Hunter_config.json",
 				"Sky Spirit_config.json",
+				"Sound Effects",
+				SoundManager.swift,
 				SpeciesCatalog.swift,
 				"Star Bit Guppy_config.json",
 				StoreManager.swift,
@@ -56,6 +58,9 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				40A9E8A82ED3C6190079A114 /* Exceptions for "aquarium Shared" folder in "aquarium iOS" target */,
+			);
+			explicitFolders = (
+				"Sound Effects",
 			);
 			path = "aquarium Shared";
 			sourceTree = "<group>";
@@ -212,7 +217,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = mmockett.aquarium;
 				PRODUCT_NAME = aquarium;
 				SDKROOT = iphoneos;
@@ -250,7 +255,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = mmockett.aquarium;
 				PRODUCT_NAME = aquarium;
 				SDKROOT = iphoneos;

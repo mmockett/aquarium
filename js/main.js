@@ -32,6 +32,10 @@ let timeCycle = 0; // 0 to 1
 let currentColors = { ...CONFIG.timeColors.day };
 let isNight = false;
 
+// Konami Code Easter Egg: ↑ ↑ ↓ ↓ ← → ← → B A
+const KONAMI_CODE = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+let konamiIndex = 0;
+
 // FPS tracking
 let fpsFrameCount = 0;
 let fpsLastTime = performance.now();
@@ -62,6 +66,9 @@ function init() {
         mousePos.x = e.clientX - rect.left;
         mousePos.y = e.clientY - rect.top;
     });
+
+    // Konami Code listener
+    window.addEventListener('keydown', handleKonamiCode);
 
     // Initialize the new UI system
     UI.initUI(SPECIES, {
@@ -264,6 +271,58 @@ function handleInput(e) {
         ripples.push(new Ripple(x, y));
         sound.playBloop(rand(0.8, 1.2)); 
     }
+}
+
+function handleKonamiCode(e) {
+    // Check if the pressed key matches the expected key in the sequence
+    if (e.code === KONAMI_CODE[konamiIndex]) {
+        konamiIndex++;
+        
+        // If the entire sequence is complete, spawn a Rainbow Spirit!
+        if (konamiIndex === KONAMI_CODE.length) {
+            spawnRainbowSpirit();
+            konamiIndex = 0; // Reset for potential future use
+        }
+    } else {
+        // Reset if wrong key pressed
+        konamiIndex = 0;
+        // But check if this key starts the sequence
+        if (e.code === KONAMI_CODE[0]) {
+            konamiIndex = 1;
+        }
+    }
+}
+
+function spawnRainbowSpirit() {
+    const rainbowSpecies = SPECIES.find(s => s.id === 'rainbow');
+    if (!rainbowSpecies) {
+        console.warn('Rainbow Spirit species not found!');
+        return;
+    }
+    
+    // Create the Rainbow Spirit at the center of the screen
+    const fish = new Fish(rainbowSpecies, false, width, height);
+    fish.pos.x = width / 2;
+    fish.pos.y = height / 2;
+    fishes.push(fish);
+    
+    // Create a dramatic entrance effect
+    for (let i = 0; i < 5; i++) {
+        setTimeout(() => {
+            ripples.push(new Ripple(width / 2, height / 2));
+        }, i * 100);
+    }
+    
+    // Play sounds
+    sound.playChime();
+    setTimeout(() => sound.playChime(), 200);
+    setTimeout(() => sound.playChime(), 400);
+    
+    // Show a special toast
+    UI.showToast('🌈 A Rainbow Spirit has appeared!', 'sparkles', 5000);
+    UI.updateFishCounts(fishes);
+    
+    console.log('🌈 Konami Code activated! Rainbow Spirit spawned!');
 }
 
 

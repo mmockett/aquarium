@@ -2,10 +2,12 @@ import Foundation
 import SwiftUI
 import Combine
 
-// MARK: - Spirit Event (Log Entry for Deaths and Births)
+// MARK: - Spirit Event (Log Entry for Deaths, Births, Purchases, and Milestones)
 enum SpiritEventType: String, Codable {
     case death
     case birth
+    case purchased  // New fish added to aquarium
+    case grewUp     // Fish reached adulthood
 }
 
 struct SpiritEvent: Identifiable, Codable {
@@ -23,6 +25,9 @@ struct SpiritEvent: Identifiable, Codable {
     let parent1Name: String?
     let parent2Name: String?
     let babyNames: [String]?
+    
+    // General fish name (for purchased/grewUp events)
+    let fishName: String?
     
     var formattedAge: String? {
         guard let age = ageAtDeath else { return nil }
@@ -50,7 +55,8 @@ struct SpiritEvent: Identifiable, Codable {
             ageAtDeath: age,
             parent1Name: nil,
             parent2Name: nil,
-            babyNames: nil
+            babyNames: nil,
+            fishName: nil
         )
     }
     
@@ -65,7 +71,40 @@ struct SpiritEvent: Identifiable, Codable {
             ageAtDeath: nil,
             parent1Name: parent1,
             parent2Name: parent2,
-            babyNames: babies
+            babyNames: babies,
+            fishName: nil
+        )
+    }
+    
+    static func purchased(name: String, species: String) -> SpiritEvent {
+        SpiritEvent(
+            id: UUID(),
+            type: .purchased,
+            timestamp: Date(),
+            deceasedName: nil,
+            speciesName: species,
+            deathReason: nil,
+            ageAtDeath: nil,
+            parent1Name: nil,
+            parent2Name: nil,
+            babyNames: nil,
+            fishName: name
+        )
+    }
+    
+    static func grewUp(name: String, species: String) -> SpiritEvent {
+        SpiritEvent(
+            id: UUID(),
+            type: .grewUp,
+            timestamp: Date(),
+            deceasedName: nil,
+            speciesName: species,
+            deathReason: nil,
+            ageAtDeath: nil,
+            parent1Name: nil,
+            parent2Name: nil,
+            babyNames: nil,
+            fishName: name
         )
     }
 }
@@ -104,6 +143,7 @@ class GameData: ObservableObject {
     @Published var selectedBackground: Int = 1  // 1-4
     @Published var showDebugInfo: Bool = false
     @Published var timeSpeed: Double = 2.0  // 0 = stopped, 1 = realtime (24h), 2 = normal (5min), 3 = fast (1min)
+    
     
     // Time speed presets (cycle duration in seconds)
     // Order: Stopped -> Realtime -> Normal -> Fast
@@ -150,6 +190,13 @@ class GameData: ObservableObject {
     @Published var totalDeaths: Int = 0
     @Published var currentAliveFish: Int = 0  // Updated by GameScene
     @Published var aliveFishBySpecies: [String: Int] = [:]  // Updated by GameScene - speciesId -> count
+    
+    /// Check if the player is stuck (can't afford any fish and has none alive)
+    /// The cheapest fish costs 100 orbs, so if score < 100 and no fish, they can't progress
+    var isPlayerStuck: Bool {
+        let cheapestFishCost = 100  // Basic fish costs 100
+        return score < cheapestFishCost && currentAliveFish == 0
+    }
     
     // Fish state for persistence (set by GameScene before saving)
     var savedFishStates: [SavedFishState] = []
@@ -255,6 +302,16 @@ class GameData: ObservableObject {
         let event = SpiritEvent.birth(parent1: parent1, parent2: parent2, babies: babyNames, species: speciesName)
         addEvent(event)
         totalBirths += babyNames.count
+    }
+    
+    func addPurchaseEvent(name: String, speciesName: String) {
+        let event = SpiritEvent.purchased(name: name, species: speciesName)
+        addEvent(event)
+    }
+    
+    func addGrownUpEvent(name: String, speciesName: String) {
+        let event = SpiritEvent.grewUp(name: name, species: speciesName)
+        addEvent(event)
     }
     
     private func addEvent(_ event: SpiritEvent) {
