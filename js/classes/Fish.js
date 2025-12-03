@@ -107,7 +107,8 @@ export class Fish {
         this.birthTime = Date.now();
         
         if (this.species.isPredator) {
-            this.lifespan = rand(10 * 60 * 1000, 30 * 60 * 1000);
+            // Predators live 15-45 minutes (50% longer than before)
+            this.lifespan = rand(15 * 60 * 1000, 45 * 60 * 1000);
         } else {
             this.lifespan = rand(60 * 60 * 1000, 24 * 60 * 60 * 1000); 
         }
@@ -122,7 +123,9 @@ export class Fish {
 
         this.digestionSlowdown = 1.0; 
         
-        this.huntingCooldown = this.species.isPredator ? rand(120 * 1000, 180 * 1000) : 0;
+        // Predators start with a 1-2 minute hunting cooldown (reduced from 2-3 min)
+        // This lets them settle in and eat regular food before hunting
+        this.huntingCooldown = this.species.isPredator ? rand(60 * 1000, 120 * 1000) : 0;
 
         this.tailAngle = 0;
         this.tailSpeed = 0.2;
@@ -298,9 +301,11 @@ export class Fish {
             
             // Predator hunting logic
             if (amPredator) {
-                // Predators hunt when energy < 70 (hungry) and not on cooldown
+                // Predators hunt when hungry and not on cooldown
+                // BUT: if starving (energy < 30), hunt regardless of cooldown to survive
                 const isHungry = this.energy < 70;
-                const canHunt = isHungry && this.huntingCooldown <= 0;
+                const isStarving = this.energy < 30;
+                const canHunt = isHungry && (this.huntingCooldown <= 0 || isStarving);
 
                 if (canHunt) {
                     // Check for rival predators first (territorial behavior)
@@ -430,9 +435,10 @@ export class Fish {
 
     update(world, frameCount) {
         if (!this.isDead) {
-            // Energy drain: Predators drain slower (0.003) to survive longer hunting cooldowns
-            // Prey drain faster (0.006)
-            const energyDrainRate = this.species.isPredator ? 0.003 : 0.006;
+            // Energy drain: Predators drain much slower (0.002) to survive long hunting cooldowns
+            // At 60fps: predators lose ~7.2 energy/min, prey lose ~21.6 energy/min
+            // This gives predators ~14 minutes to find food vs ~4.6 min for prey
+            const energyDrainRate = this.species.isPredator ? 0.002 : 0.006;
             this.energy -= energyDrainRate;
             if (this.digestionSlowdown < 1.0) this.digestionSlowdown += 0.002;
             

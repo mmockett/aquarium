@@ -315,7 +315,7 @@ body, html {
     opacity: 0;
     pointer-events: none;
     transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    z-index: 1000;
+    z-index: 9999;
     max-width: 90%;
 }
 
@@ -1058,6 +1058,169 @@ body, html {
 
 .confirm-btn:active {
     transform: scale(0.98);
+}
+
+/* ===== How to Play ===== */
+.how-to-play-sheet {
+    max-height: 80vh;
+    max-height: min(80vh, calc(100dvh - 60px));
+}
+
+.how-to-play-section {
+    margin-bottom: 24px;
+}
+
+.how-to-play-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    padding-left: 4px;
+}
+
+.how-to-play-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    margin-bottom: 8px;
+}
+
+.how-to-play-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.how-to-play-icon.orange { background: rgba(255, 149, 0, 0.2); color: var(--accent-orange); }
+.how-to-play-icon.green { background: rgba(52, 199, 89, 0.2); color: var(--accent-green); }
+.how-to-play-icon.yellow { background: rgba(255, 214, 10, 0.2); color: var(--accent-yellow); }
+.how-to-play-icon.pink { background: rgba(255, 55, 95, 0.2); color: var(--accent-pink); }
+.how-to-play-icon.blue { background: rgba(0, 122, 255, 0.2); color: var(--accent-blue); }
+.how-to-play-icon.cyan { background: rgba(50, 173, 230, 0.2); color: #32ADE6; }
+.how-to-play-icon.red { background: rgba(255, 59, 48, 0.2); color: #FF3B30; }
+.how-to-play-icon.purple { background: rgba(175, 82, 222, 0.2); color: #AF52DE; }
+
+.how-to-play-text {
+    flex: 1;
+}
+
+.how-to-play-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.how-to-play-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+/* Settings item with chevron */
+.settings-item.clickable {
+    cursor: pointer;
+}
+
+.settings-item.clickable:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.settings-item .chevron {
+    color: var(--text-tertiary);
+    margin-left: auto;
+}
+
+.settings-item-icon .blue {
+    color: var(--accent-blue);
+}
+
+/* ===== Welcome Tooltip ===== */
+.welcome-tooltip {
+    position: fixed;
+    bottom: calc(80px + var(--safe-area-bottom));
+    left: 20px;
+    z-index: 9998;
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.welcome-tooltip.show {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.tooltip-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tooltip-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(0, 122, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-blue);
+}
+
+.tooltip-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tooltip-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+.tooltip-message {
+    font-size: 13px;
+    font-weight: 500;
+    color: #666;
+}
+
+.tooltip-arrow {
+    position: absolute;
+    bottom: -8px;
+    left: 30px;
+    width: 16px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.95);
+    transform: rotate(45deg);
+    border-radius: 0 0 4px 0;
+    box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Pulse animation for tooltip */
+.welcome-tooltip.show .tooltip-content {
+    animation: tooltipPulse 2s ease-in-out infinite;
+}
+
+@keyframes tooltipPulse {
+    0%, 100% { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1); }
+    50% { box-shadow: 0 8px 32px rgba(0, 122, 255, 0.3), 0 2px 8px rgba(0, 122, 255, 0.2); }
 }
 
 /* ===== Hidden UI State ===== */

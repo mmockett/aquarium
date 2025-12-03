@@ -16,7 +16,8 @@ let gameState = {
     unreadMemories: 0,
     spiritEvents: [],
     fishCounts: {},
-    unlockedSpecies: new Set(['basic']) // Track unlocked species
+    unlockedSpecies: new Set(['basic']), // Track unlocked species
+    hasSeenOnboarding: false // Track if user has seen the welcome tooltip
 };
 
 // Sound manager reference (set via initUI)
@@ -74,6 +75,7 @@ function setupEventListeners() {
         e.preventDefault();
         e.stopPropagation();
         autoStartSound();
+        hideWelcomeTooltip(); // Dismiss tooltip when user taps score pill
         openSettings();
     });
     
@@ -131,6 +133,13 @@ function setupEventListeners() {
         confirmRestart();
     });
     
+    // How to Play button
+    document.getElementById('howToPlayBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openHowToPlay();
+    });
+    
     // Time slider
     setupTimeSlider();
     
@@ -143,6 +152,9 @@ function setupEventListeners() {
     });
     document.getElementById('memoriesOverlay').addEventListener('click', (e) => {
         if (e.target.id === 'memoriesOverlay') closeMemories();
+    });
+    document.getElementById('howToPlayOverlay').addEventListener('click', (e) => {
+        if (e.target.id === 'howToPlayOverlay') closeHowToPlay();
     });
     
     // Prevent clicks inside modal sheets from bubbling to overlay
@@ -200,7 +212,7 @@ function toggleAutoFeed() {
     btn.classList.toggle('active', gameState.autoFeed);
     
     showToast(
-        gameState.autoFeed ? 'Autofeed On – Fish will be fed automatically' : 'Autofeed Off – Tap to drop food',
+        gameState.autoFeed ? 'Autofeed On – Fish will be fed automatically' : 'Autofeed Off',
         'leaf'
     );
     
@@ -218,7 +230,7 @@ function toggleTalkMode() {
     btn.classList.toggle('active', gameState.talkMode);
     
     showToast(
-        gameState.talkMode ? 'Spirit Mode On – Tap fish to hear them speak' : 'Spirit Mode Off – Tap to drop food',
+        gameState.talkMode ? 'Spirit Mode On – Tap fish to read their thoughts' : 'Spirit Mode Off',
         'sparkles'
     );
     
@@ -275,6 +287,43 @@ function openSettings() {
 window.closeSettings = function() {
     document.getElementById('settingsOverlay').classList.remove('show');
 };
+
+// ===== How to Play Modal =====
+function openHowToPlay() {
+    document.getElementById('howToPlayOverlay').classList.add('show');
+    refreshIcons(); // Ensure icons render in the How to Play sheet
+}
+
+window.closeHowToPlay = function() {
+    document.getElementById('howToPlayOverlay').classList.remove('show');
+};
+
+// ===== Welcome Tooltip =====
+function showWelcomeTooltip() {
+    if (gameState.hasSeenOnboarding) return;
+    
+    const tooltip = document.getElementById('welcomeTooltip');
+    if (tooltip) {
+        // Show after a short delay to let the UI settle
+        setTimeout(() => {
+            tooltip.classList.add('show');
+            refreshIcons();
+        }, 1500);
+    }
+}
+
+function hideWelcomeTooltip() {
+    const tooltip = document.getElementById('welcomeTooltip');
+    if (tooltip) {
+        tooltip.classList.remove('show');
+    }
+    
+    // Mark as seen and save
+    if (!gameState.hasSeenOnboarding) {
+        gameState.hasSeenOnboarding = true;
+        saveState();
+    }
+}
 
 // ===== Background Selection =====
 function renderBackgroundList() {
@@ -779,7 +828,8 @@ function saveState() {
         totalBirths: gameState.totalBirths,
         totalDeaths: gameState.totalDeaths,
         spiritEvents: gameState.spiritEvents,
-        unlockedSpecies: gameState.unlockedSpecies ? Array.from(gameState.unlockedSpecies) : []
+        unlockedSpecies: gameState.unlockedSpecies ? Array.from(gameState.unlockedSpecies) : [],
+        hasSeenOnboarding: gameState.hasSeenOnboarding
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
@@ -798,6 +848,7 @@ function loadState() {
             gameState.totalDeaths = data.totalDeaths ?? 0;
             gameState.spiritEvents = data.spiritEvents ?? [];
             gameState.unlockedSpecies = new Set(data.unlockedSpecies ?? ['basic']);
+            gameState.hasSeenOnboarding = data.hasSeenOnboarding ?? false;
     
             // Update UI to reflect loaded state
             updateScore(gameState.score);
@@ -808,6 +859,9 @@ function loadState() {
             updateTimeSlider();
             renderBackgroundList();
         }
+        
+        // Show welcome tooltip for first-time users
+        showWelcomeTooltip();
     } catch (e) {
         console.warn('Failed to load UI state:', e);
     }

@@ -6,7 +6,7 @@ export class Food {
         this.pos = new Vector(x, y);
         this.vel = new Vector(0, 0);
         this.acc = new Vector(0, CONFIG.physics.foodGravity * 0.1);
-        this.size = 4;
+        this.size = 1.7;  // Reduced to 30% of original size
         this.eaten = false;
         
         this.wobbleSpeed = rand(0.002, 0.005);

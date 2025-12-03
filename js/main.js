@@ -254,6 +254,7 @@ function handleInput(e) {
     sound.autoStart();
 
     if (UI.isTalkModeEnabled()) {
+        // In talk mode, check if we clicked on a fish first
         let clickedFish = null;
         for (let f of fishes) {
             if (!f.isDead) {
@@ -266,12 +267,17 @@ function handleInput(e) {
         }
 
         if (clickedFish) {
+            // Tapped on a fish - make it talk
             clickedFish.talk();
             sound.playFishSplash(); 
         } else {
+            // Tapped on empty water - still drop food (like Swift version)
+            particles.push(new Food(x, y));
             ripples.push(new Ripple(x, y));
+            sound.playBloop(rand(0.8, 1.2));
         }
     } else {
+        // Normal mode - always drop food
         particles.push(new Food(x, y));
         ripples.push(new Ripple(x, y));
         sound.playBloop(rand(0.8, 1.2)); 
