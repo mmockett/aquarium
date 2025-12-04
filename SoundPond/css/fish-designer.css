@@ -1,0 +1,196 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    height: 100vh;
+    background-color: #1a1a1a;
+    color: #eee;
+    overflow: hidden;
+}
+
+.toolbar {
+    width: 300px;
+    background-color: #2a2a2a;
+    border-right: 1px solid #333;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    overflow-y: auto;
+    z-index: 10;
+}
+
+.workspace {
+    flex: 1;
+    position: relative;
+    background-color: #222;
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.canvas-container {
+    position: relative;
+    width: 800px;
+    height: 600px;
+    /* border: 1px dashed #444; */
+}
+
+.center-marker {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 2px;
+    background-color: #00bcd4; /* Cyan for center */
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 100;
+}
+.center-marker::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2px;
+    height: 20px;
+    background-color: #00bcd4;
+    transform: translate(-50%, -50%);
+}
+
+.fish-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Center the container itself */
+    width: 0;
+    height: 0;
+    /* visible overflow */
+}
+
+.fish-part {
+    position: absolute;
+    cursor: grab;
+    user-select: none;
+    transform-origin: center center;
+    /* Pointer events allow selecting */
+}
+
+.fish-part.selected {
+    outline: 2px solid #ff9800;
+}
+
+.fish-part img {
+    display: block;
+    pointer-events: none; /* Allow clicks to pass through to div */
+}
+
+.pivot-marker {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background-color: #4caf50; /* Green */
+    border-radius: 50%;
+    border: 1px solid white;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    display: none; /* Hidden unless selected */
+}
+
+.fish-part.selected .pivot-marker {
+    display: block;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+input[type="text"], input[type="number"] {
+    background: #333;
+    border: 1px solid #444;
+    color: white;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+button {
+    background: #444;
+    color: white;
+    border: none;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #555;
+}
+
+.primary-btn {
+    background-color: #00bcd4;
+    color: #000;
+    font-weight: 600;
+}
+.primary-btn:hover {
+    background-color: #00acc1;
+}
+
+.layer-item {
+    padding: 8px;
+    background: #333;
+    margin-bottom: 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.layer-item:hover {
+    background: #444;
+}
+
+.layer-item.active {
+    background: #00bcd4;
+    color: #000;
+}
+
+.control-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.control-row input {
+    width: 60px;
+}
+
+textarea {
+    width: 100%;
+    height: 150px;
+    background: #333;
+    color: #aaa;
+    border: 1px solid #444;
+    resize: vertical;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.help-text {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    color: #666;
+    font-size: 12px;
+    pointer-events: none;
+}
+

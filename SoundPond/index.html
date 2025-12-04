@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SoundPond">
+    <title>SoundPond</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="assets/app/Icon.png">
+    <link rel="shortcut icon" type="image/png" href="assets/app/Icon.png">
+    
+    <!-- iOS Home Screen Icons -->
+    <link rel="apple-touch-icon" href="assets/app/Icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/app/Icon.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="assets/app/Icon.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="assets/app/Icon.png">
+    
+    <!-- Android/PWA -->
+    <link rel="icon" sizes="192x192" href="assets/app/Icon.png">
+    <link rel="icon" sizes="512x512" href="assets/app/Icon.png">
+    
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Lucide Icons - Similar aesthetic to SF Symbols -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- SoundCloud Widget API -->
+    <script src="https://w.soundcloud.com/player/api.js"></script>
+</head>
+<body>
+    <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div id="ui-layer">
+        <!-- Debug Info -->
+        <div id="debugInfo" class="debug-info">
+            <div>FPS: <span id="fpsDisplay">60</span></div>
+            <div>Fish: <span id="fishCountDisplay">0</span></div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="toast">
+            <span class="toast-icon">🍂</span>
+            <span class="toast-message">Autofeed enabled</span>
+        </div>
+
+        <!-- Welcome Tooltip -->
+        <div id="welcomeTooltip" class="welcome-tooltip">
+            <div class="tooltip-content">
+                <div class="tooltip-icon">
+                    <i data-lucide="hand" class="icon-sm"></i>
+                </div>
+                <div class="tooltip-text">
+                    <div class="tooltip-title">Welcome!</div>
+                    <div class="tooltip-message">Tap here for tips and settings</div>
+                </div>
+            </div>
+            <div class="tooltip-arrow"></div>
+        </div>
+
+        <!-- Idle Prompt -->
+        <div id="idlePrompt">The spirits are waiting... tap to offer food.</div>
+
+        <!-- Bottom Control Bar -->
+        <div class="bottom-bar">
+            <!-- Score Pill (opens settings) -->
+            <div id="scorePill" class="score-pill glass">
+                <div class="score-icon"></div>
+                <span id="scoreDisplay" class="score-value">0</span>
+            </div>
+            
+            <!-- Right Control Group -->
+            <div class="control-group glass">
+                <button id="autoFeedBtn" class="glass-btn green" title="Auto Feed">
+                    <i data-lucide="leaf" class="icon"></i>
+                </button>
+                <button id="talkBtn" class="glass-btn yellow" title="Spirit Mode">
+                    <i data-lucide="sparkles" class="icon"></i>
+                </button>
+                <button id="memoriesBtn" class="glass-btn pink" title="Spirit Memories">
+                    <i data-lucide="heart" class="icon"></i>
+                    <span id="memoriesBadge" class="badge" style="display: none;">0</span>
+                </button>
+                <button id="shopBtn" class="glass-btn blue" title="Shop">
+                    <i data-lucide="shopping-cart" class="icon"></i>
+                    </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Sheet -->
+    <div id="settingsOverlay" class="modal-overlay">
+        <div class="modal-sheet">
+            <div class="sheet-header">
+                <div class="sheet-drag-indicator"></div>
+                <span class="sheet-title">Settings</span>
+                <button class="sheet-close" onclick="closeSettings()">×</button>
+            </div>
+            <div class="sheet-content">
+                <!-- SoundCloud Connection -->
+                <div class="settings-section" id="soundcloudSection">
+                    <div class="settings-section-title">SoundCloud</div>
+                    <div class="settings-list">
+                        <!-- Not Connected State -->
+                        <div id="scNotConnected" class="soundcloud-connect-card">
+                            <div class="sc-connect-icon">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32">
+                                    <path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.102-.1m-.899.828c-.06 0-.091.037-.104.094L0 14.479l.165 1.308c.014.057.045.094.09.094s.089-.037.099-.094l.194-1.308-.194-1.332c-.01-.057-.054-.094-.104-.094m1.83-1.229c-.061 0-.12.045-.12.104l-.21 2.563.225 2.458c0 .06.045.104.106.104.061 0 .12-.044.12-.104l.24-2.458-.24-2.563c0-.06-.045-.104-.12-.104m.945-.089c-.075 0-.135.06-.15.135l-.193 2.64.21 2.544c.016.077.075.138.15.138.074 0 .135-.061.15-.138l.225-2.544-.225-2.64c-.016-.075-.075-.135-.15-.135m1.065.202c-.09 0-.165.075-.165.165l-.195 2.46.195 2.535c0 .09.075.165.165.165.089 0 .165-.075.165-.165l.225-2.535-.225-2.46c0-.09-.075-.165-.165-.165m1.035-.39c-.105 0-.195.09-.195.195l-.165 2.655.18 2.505c0 .105.09.195.195.195.104 0 .194-.09.194-.195l.195-2.505-.21-2.655c0-.105-.089-.195-.194-.195m1.124-.432c-.12 0-.225.105-.225.225l-.15 2.865.165 2.475c0 .12.105.225.225.225.119 0 .225-.105.225-.225l.18-2.475-.195-2.865c0-.12-.105-.225-.225-.225m1.155-.165c-.135 0-.24.105-.255.24l-.135 2.805.15 2.46c.015.135.12.24.255.24.136 0 .24-.105.256-.24l.165-2.46-.18-2.805c-.016-.135-.12-.24-.256-.24m1.426.239c0-.15-.135-.285-.285-.285-.136 0-.271.135-.271.285l-.135 2.566.135 2.445c0 .15.135.285.285.285.15 0 .285-.135.285-.285l.15-2.445-.164-2.566m.705-1.364c-.165 0-.3.135-.3.3l-.135 3.63.15 2.415c0 .165.135.3.3.3.164 0 .299-.135.299-.3l.165-2.415-.164-3.63c0-.165-.135-.3-.3-.3m1.065.165c-.181 0-.33.15-.33.33l-.12 3.135.135 2.385c0 .18.149.33.33.33.18 0 .33-.15.33-.33l.15-2.385-.165-3.135c0-.18-.15-.33-.33-.33m1.111-.329c-.195 0-.359.165-.359.36l-.106 3.12.12 2.37c0 .195.164.36.359.36.194 0 .359-.165.359-.36l.135-2.37-.135-3.12c0-.195-.165-.36-.36-.36m1.17-.21c-.21 0-.375.165-.39.375l-.105 2.955.12 2.355c.015.21.18.375.39.375.21 0 .375-.165.375-.375l.135-2.355-.135-2.955c0-.21-.18-.375-.39-.375m1.14-.329c-.225 0-.405.18-.405.405l-.105 2.88.12 2.34c0 .225.18.405.405.405.225 0 .405-.18.405-.405l.12-2.34-.135-2.88c0-.225-.18-.405-.405-.405m1.203-.075c-.24 0-.42.18-.435.42l-.09 2.55.105 2.325c.015.24.195.42.435.42.24 0 .42-.18.42-.42l.12-2.325-.12-2.55c0-.24-.195-.42-.435-.42m1.215.075c-.255 0-.449.195-.449.45l-.09 2.085.105 2.31c0 .255.194.449.449.449.255 0 .449-.194.449-.449l.12-2.31-.12-2.085c0-.255-.209-.45-.464-.45m1.005 2.565c-.6 0-1.168.12-1.695.315-.181-.57-.72-.99-1.356-.99-.3 0-.584.105-.809.285V8.1c0-1.74 1.425-3.15 3.18-3.15 1.74 0 3.15 1.41 3.15 3.15v.075c1.215.12 2.16 1.155 2.16 2.4 0 1.335-1.08 2.415-2.415 2.415h-4.215"/>
+                                </svg>
+                            </div>
+                            <div class="sc-connect-text">
+                                <div class="sc-connect-title">Connect SoundCloud</div>
+                                <div class="sc-connect-desc">Link your account to grow fish based on your music taste</div>
+                            </div>
+                            <button id="scConnectBtn" class="sc-connect-btn">
+                                Connect
+                            </button>
+                        </div>
+                        
+                        <!-- Connected State (hidden by default) -->
+                        <div id="scConnected" class="soundcloud-user-card" style="display: none;">
+                            <img id="scUserAvatar" class="sc-user-avatar" src="" alt="Profile">
+                            <div class="sc-user-info">
+                                <div class="sc-user-name" id="scUserName">Username</div>
+                                <div class="sc-user-status">
+                                    <span class="sc-status-dot"></span>
+                                    Connected
+                                </div>
+                            </div>
+                            <button id="scDisconnectBtn" class="sc-disconnect-btn">
+                                <i data-lucide="log-out" class="icon-sm"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Artist Sync Controls (shown when connected) -->
+                        <div id="scArtistControls" class="sc-artist-controls" style="display: none;">
+                            <div class="sc-stats-table">
+                                <!-- Header Row -->
+                                <div class="sc-stats-cell sc-stats-header">Artists</div>
+                                <div class="sc-stats-cell sc-stats-header">Tracks</div>
+                                
+                                <!-- Row 1: Totals -->
+                                <div class="sc-stats-cell">
+                                    <span class="sc-stat-value" id="scFollowingCount">0</span>
+                                    <span class="sc-stat-label">following</span>
+                                </div>
+                                <div class="sc-stats-cell">
+                                    <span class="sc-stat-value" id="scTotalLikes">0</span>
+                                    <span class="sc-stat-label">liked</span>
+                                </div>
+                                
+                                <!-- Row 2: Matched (highlighted) -->
+                                <div class="sc-stats-cell sc-highlight">
+                                    <span class="sc-stat-value" id="scArtistCount">0</span>
+                                    <span class="sc-stat-label">with likes</span>
+                                </div>
+                                <div class="sc-stats-cell sc-highlight">
+                                    <span class="sc-stat-value" id="scLikeCount">0</span>
+                                    <span class="sc-stat-label">from followed</span>
+                                </div>
+                            </div>
+                            <button id="scSyncBtn" class="sc-sync-btn">
+                                <i data-lucide="refresh-cw" class="icon-sm"></i>
+                                Sync Artists
+                            </button>
+                        </div>
+                    </div>
+                    <div class="settings-section-footer" id="scFooter">Connect to turn followed artists you've liked into fish</div>
+                </div>
+
+                <!-- How to Play -->
+                <div class="settings-section">
+                    <div class="settings-list">
+                        <div class="settings-item clickable" id="howToPlayBtn">
+                            <span class="settings-item-icon"><i data-lucide="help-circle" class="icon-sm blue"></i></span>
+                            <span class="settings-item-label">How to Play</span>
+                            <i data-lucide="chevron-right" class="icon-sm chevron"></i>
+                        </div>
+                    </div>
+                    <div class="settings-section-footer">Learn about fish behavior and interactions</div>
+                </div>
+
+                <!-- Background Selection -->
+                <div class="settings-section">
+                    <div class="settings-section-title">Background</div>
+                    <div class="settings-list" id="backgroundList">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Time Speed -->
+                <div class="settings-section">
+                    <div class="settings-section-title">Time</div>
+                    <div class="settings-list">
+                        <div class="settings-slider">
+                            <div class="slider-header">
+                                <span class="slider-label">
+                                    <i data-lucide="clock" class="icon-sm"></i>
+                                    <span>Day/Night Cycle</span>
+                                </span>
+                                <span id="timeSpeedValue" class="slider-value">Normal</span>
+                            </div>
+                            <div class="slider-track" id="timeSlider">
+                                <div class="slider-fill" id="timeSliderFill"></div>
+                                <div class="slider-thumb" id="timeSliderThumb"></div>
+                            </div>
+                            <div class="slider-labels">
+                                <span>Stopped</span>
+                                <span>Fast</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-section-footer">Controls how fast the day/night cycle progresses.</div>
+                </div>
+
+                <!-- Sound Toggle -->
+                <div class="settings-section">
+                    <div class="settings-section-title">Audio</div>
+                    <div class="settings-list">
+                        <div class="settings-item" id="soundToggle">
+                            <span class="settings-item-icon"><i data-lucide="volume-2" class="icon-sm"></i></span>
+                            <span class="settings-item-label">Ambient Sound</span>
+                            <div id="soundSwitch" class="toggle-switch active"></div>
+                        </div>
+                    </div>
+                    <div class="settings-section-footer">Ocean ambience and sound effects</div>
+                </div>
+
+                <!-- Debug Toggle -->
+                <div class="settings-section">
+                    <div class="settings-section-title">Developer</div>
+                    <div class="settings-list">
+                        <div class="settings-item" id="debugToggle">
+                            <span class="settings-item-icon"><i data-lucide="bug" class="icon-sm"></i></span>
+                            <span class="settings-item-label">Show Debug Info</span>
+                            <div id="debugSwitch" class="toggle-switch"></div>
+                        </div>
+                    </div>
+                    <div class="settings-section-footer">Shows FPS and fish count</div>
+                </div>
+
+                <!-- Restart Game -->
+                <div class="settings-section">
+                    <button class="danger-btn" id="restartBtn">
+                        <i data-lucide="rotate-ccw" class="icon-sm"></i>
+                        <span>Restart Game</span>
+                    </button>
+                    <div class="settings-section-footer">Removes all fish and resets progress.</div>
+                </div>
+            </div>
+            </div>
+        </div>
+        
+    <!-- Shop Sheet -->
+    <div id="shopOverlay" class="modal-overlay">
+        <div class="modal-sheet">
+            <div class="sheet-header">
+                <div class="sheet-drag-indicator"></div>
+                <span class="sheet-title">Shop</span>
+                <button class="sheet-close" onclick="closeShop()">×</button>
+            </div>
+            <div class="sheet-content" id="shopContent">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Spirit Memories Sheet -->
+    <div id="memoriesOverlay" class="modal-overlay">
+        <div class="modal-sheet">
+            <div class="sheet-header">
+                <div class="sheet-drag-indicator"></div>
+                <span class="sheet-title">Spirit Memories</span>
+                <button class="sheet-close" onclick="closeMemories()">×</button>
+            </div>
+            <div class="sheet-content" id="memoriesContent">
+                <!-- Stats Row -->
+                <div class="stats-row">
+                    <div class="stat-pill">
+                        <div class="stat-value">
+                            <i data-lucide="fish" class="icon-stat blue"></i>
+                            <span id="statAlive">0</span>
+                        </div>
+                        <div class="stat-label">Alive</div>
+                    </div>
+                    <div class="stat-pill">
+                        <div class="stat-value">
+                            <i data-lucide="sparkles" class="icon-stat yellow"></i>
+                            <span id="statBorn">0</span>
+                        </div>
+                        <div class="stat-label">Born</div>
+                    </div>
+                    <div class="stat-pill">
+                        <div class="stat-value">
+                            <i data-lucide="heart-crack" class="icon-stat pink"></i>
+                            <span id="statPassed">0</span>
+                        </div>
+                        <div class="stat-label">Passed</div>
+                    </div>
+                </div>
+                <!-- Events List -->
+                <div id="eventsList">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+            </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="confirm-modal">
+        <div class="confirm-title">Restart Game?</div>
+        <div class="confirm-message">This will remove all fish and reset your progress. Are you sure?</div>
+        <div class="confirm-buttons">
+            <button class="confirm-btn cancel" onclick="closeConfirm()">Cancel</button>
+            <button class="confirm-btn danger" id="confirmRestartBtn">Restart</button>
+        </div>
+    </div>
+    <div id="confirmBackdrop" class="modal-overlay" onclick="closeConfirm()"></div>
+
+    <!-- How to Play Sheet -->
+    <div id="howToPlayOverlay" class="modal-overlay">
+        <div class="modal-sheet how-to-play-sheet">
+            <div class="sheet-header">
+                <div class="sheet-drag-indicator"></div>
+                <span class="sheet-title">How to Play</span>
+                <button class="sheet-close" onclick="closeHowToPlay()">×</button>
+            </div>
+            <div class="sheet-content">
+                <!-- Controls Section -->
+                <div class="how-to-play-section">
+                    <div class="how-to-play-section-title">Controls</div>
+                    
+                    <div class="how-to-play-item">
+                        <div class="how-to-play-icon orange">
+                            <i data-lucide="hand" class="icon-sm"></i>
+                        </div>
+                        <div class="how-to-play-text">
+                            <div class="how-to-play-title">Feed Your Fish</div>
+                            <div class="how-to-play-desc">Tap anywhere on the water to drop food. Fish will swim towards it and eat if they are hungry.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="how-to-play-item">
+                        <div class="how-to-play-icon green">
+                            <i data-lucide="leaf" class="icon-sm"></i>
+                        </div>
+                        <div class="how-to-play-text">
+                            <div class="how-to-play-title">Autofeed</div>
+                            <div class="how-to-play-desc">Enable autofeed to automatically drop food for your fish so they always stay well-fed.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="how-to-play-item">
+                        <div class="how-to-play-icon yellow">
+                            <i data-lucide="sparkles" class="icon-sm"></i>
+                        </div>
+                        <div class="how-to-play-text">
+                            <div class="how-to-play-title">Spirit Mode</div>
+                            <div class="how-to-play-desc">Enable spirit mode then tap on fish to hear them speak and see their name, age, and hunger level.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="how-to-play-item">
+                        <div class="how-to-play-icon pink">
+                            <i data-lucide="heart" class="icon-sm"></i>
+                        </div>
+                        <div class="how-to-play-text">
+                            <div class="how-to-play-title">Spirit Memories</div>
+                            <div class="how-to-play-desc">Keep track of births and deaths in your aquarium. Each fish has a unique name and story.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="how-to-play-item">
+                        <div class="how-to-play-icon blue">
+                            <i data-lucide="shopping-cart" class="icon-sm"></i>
+                        </div>
+                        <div class="how-to-play-text">
+                            <div class="how-to-play-title">Shop</div>
+                            <div class="how-to-play-desc">Earn spirit orbs by feeding your fish. Spend your orbs in the shop to unlock new species.</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Fish Behavior Section -->
+                <div class="how-to-play-section">
+                    <div class="how-to-play-section-title">Fish Behavior</div>
+                    
+                    <div class="how-to-play-item">
+                        <div class="how-to-play-icon cyan">
+                            <i data-lucide="fish" class="icon-sm"></i>
+                        </div>
+                        <div class="how-to-play-text">
+                            <div class="how-to-play-title">Schooling</div>
+                            <div class="how-to-play-desc">Fish of the same species swim together in schools. The oldest fish will normally lead the group.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="how-to-play-item">
+                        <div class="how-to-play-icon pink">
+                            <i data-lucide="heart" class="icon-sm"></i>
+                        </div>
+                        <div class="how-to-play-text">
+                            <div class="how-to-play-title">Breeding</div>
+                            <div class="how-to-play-desc">Well-fed adult fish of the same species may have babies when they spend time together.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="how-to-play-item">
+                        <div class="how-to-play-icon red">
+                            <i data-lucide="alert-triangle" class="icon-sm"></i>
+                        </div>
+                        <div class="how-to-play-text">
+                            <div class="how-to-play-title">Predators</div>
+                            <div class="how-to-play-desc">Some fish are predators and will hunt smaller fish. Add predators to your aquarium at your own risk!</div>
+                        </div>
+                    </div>
+                    
+                    <div class="how-to-play-item">
+                        <div class="how-to-play-icon purple">
+                            <i data-lucide="moon" class="icon-sm"></i>
+                        </div>
+                        <div class="how-to-play-text">
+                            <div class="how-to-play-title">Day & Night</div>
+                            <div class="how-to-play-desc">Most fish slow down at night, but predators keep hunting. Adjust the day/night cycle speed in settings.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="how-to-play-item">
+                        <div class="how-to-play-icon green">
+                            <i data-lucide="arrow-up-circle" class="icon-sm"></i>
+                        </div>
+                        <div class="how-to-play-text">
+                            <div class="how-to-play-title">Growth</div>
+                            <div class="how-to-play-desc">Baby fish start small and grow by eating. Babies have a bigger appetite than adults!</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+    <script>
+        // Initialize Lucide icons after DOM loads
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        });
+    </script>
+</body>
+</html>
