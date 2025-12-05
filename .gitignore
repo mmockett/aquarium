@@ -6,3 +6,6 @@
 xcuserdata/
 *.xcscmblueprint
 
+# Reference files
+@References/
+

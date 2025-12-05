@@ -1,12 +1,15 @@
 // SoundCloud OAuth 2.1 Authentication Service
 // Uses PKCE for secure browser-based auth
+// Client secret is kept server-side via Cloudflare Worker proxy
 
 const SOUNDCLOUD_CONFIG = {
     clientId: 'EafoE3Bzwz0ZmO7q7wAzo2zHNROWY6jU',
-    clientSecret: '***REMOVED***',
+    // clientSecret removed for security - now handled by Cloudflare Worker
     authUrl: 'https://secure.soundcloud.com/authorize',
     tokenUrl: 'https://secure.soundcloud.com/oauth/token',
     apiUrl: 'https://api.soundcloud.com',
+    // Token proxy - Cloudflare Worker that holds the client_secret
+    tokenProxy: 'https://soundpond-auth.mmockett.workers.dev',
     // Redirect URI will be set dynamically based on current origin
     get redirectUri() {
         return window.location.origin + window.location.pathname.replace(/[^/]*$/, '') + 'callback.html';
@@ -121,21 +124,17 @@ class SoundCloudAuth {
             throw new Error('Code verifier not found');
         }
 
-        // Exchange code for token
-        const response = await fetch(SOUNDCLOUD_CONFIG.tokenUrl, {
+        // Exchange code for token via secure proxy (client_secret added server-side)
+        const formData = new FormData();
+        formData.append('grant_type', 'authorization_code');
+        formData.append('client_id', SOUNDCLOUD_CONFIG.clientId);
+        formData.append('redirect_uri', SOUNDCLOUD_CONFIG.redirectUri);
+        formData.append('code_verifier', codeVerifier);
+        formData.append('code', code);
+
+        const response = await fetch(`${SOUNDCLOUD_CONFIG.tokenProxy}/token`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Accept': 'application/json'
-            },
-            body: new URLSearchParams({
-                grant_type: 'authorization_code',
-                client_id: SOUNDCLOUD_CONFIG.clientId,
-                client_secret: SOUNDCLOUD_CONFIG.clientSecret,
-                redirect_uri: SOUNDCLOUD_CONFIG.redirectUri,
-                code_verifier: codeVerifier,
-                code: code
-            })
+            body: formData
         });
 
         if (!response.ok) {
@@ -198,17 +197,15 @@ class SoundCloudAuth {
         }
 
         try {
-            const response = await fetch(SOUNDCLOUD_CONFIG.tokenUrl, {
+            // Use secure proxy for token refresh
+            const formData = new FormData();
+            formData.append('grant_type', 'refresh_token');
+            formData.append('client_id', SOUNDCLOUD_CONFIG.clientId);
+            formData.append('refresh_token', this.refreshToken);
+
+            const response = await fetch(`${SOUNDCLOUD_CONFIG.tokenProxy}/refresh`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Accept': 'application/json'
-                },
-                body: new URLSearchParams({
-                    grant_type: 'refresh_token',
-                    client_id: SOUNDCLOUD_CONFIG.clientId,
-                    refresh_token: this.refreshToken
-                })
+                body: formData
             });
 
             if (!response.ok) {
