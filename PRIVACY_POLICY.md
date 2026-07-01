@@ -12,7 +12,7 @@ This Privacy Policy covers Spirit Aquarium and all related IP, including the Spi
 
 ## Information We Collect
 
-None.
+Nothing!
 
 ### Information We Do NOT Collect
 
