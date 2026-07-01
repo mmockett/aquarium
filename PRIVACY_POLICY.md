@@ -1,12 +1,18 @@
 # Privacy Policy for Spirit Aquarium
 
-**Last Updated:** December 1, 2025
+**Last Updated:** July 1, 2026
 
 ## Introduction
 
-Spirit Aquarium ("we," "our," or "the app") is committed to protecting your privacy. This Privacy Policy explains how we handle information when you use our mobile application.
+Spirit Aquarium ("we," "our," or "the app") is committed to protecting your privacy. This Privacy Policy explains how we handle information when you use our mobile applications.
+
+## Scope
+
+This Privacy Policy covers Spirit Aquarium and all related IP, including the Spirit Aquarium and Reef Rescue apps.
 
 ## Information We Collect
+
+None.
 
 ### Information We Do NOT Collect
 
